@@ -27,6 +27,4 @@ export type AppStackParamList = {
   A12_SistemaTérmico: { empresaId: string; atendimentoId: string }
   A13_Bombeamento: { empresaId: string; atendimentoId: string }
   B2_DadosGerais: { empresaId: string; atendimentoId: string }
-  // Relatório
-  GerarRelatorio: { empresaId: string; atendimentoId: string }
 }

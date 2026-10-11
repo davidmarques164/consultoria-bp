@@ -9,6 +9,7 @@ import { Colors } from '../../constants/colors'
 import { upsertHistoricoConsumo, getHistoricoConsumo, updateAtendimento } from '../../db/operations'
 import { excluirFaturaArquivo, listarFaturasArquivo, marcarInicio, salvarFaturaArquivo } from '../../db/faseA'
 import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
+import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { HistoricoMes } from '../../types/atendimento'
 import { FaturaArquivo } from '../../types/faseA'
@@ -97,6 +98,7 @@ export default function A1_HistoricoConsumoScreen() {
       await updateAtendimento(atendimentoId, { status_modulos: { A1: true } })
       marcarModuloConcluido('A1')
       setArquivos(await listarFaturasArquivo(empresaId))
+      sincronizarEmSegundoPlano(empresaId)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível guardar os arquivos.')
     } finally {
@@ -109,6 +111,7 @@ export default function A1_HistoricoConsumoScreen() {
   const gravarSenha = async (a: FaturaArquivo) => {
     try {
       await salvarFaturaArquivo(empresaId, atendimentoId, { ...a, senha: a.senha?.trim() ? a.senha.trim() : null })
+      sincronizarEmSegundoPlano(empresaId)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível gravar a senha.')
     }
@@ -124,6 +127,7 @@ export default function A1_HistoricoConsumoScreen() {
             await excluirFaturaArquivo(a.id)
             if (a.arquivo_path) await apagarArquivo(a.arquivo_path).catch(() => {})
             setArquivos((p) => p.filter((x) => x.id !== a.id))
+            sincronizarEmSegundoPlano(empresaId)
           } catch (e: any) {
             Alert.alert('Erro', e?.message ?? 'Não foi possível remover.')
           }
@@ -148,6 +152,7 @@ export default function A1_HistoricoConsumoScreen() {
       await updateAtendimento(atendimentoId, { status_modulos: { A1: true } })
       await marcarInicio(atendimentoId)
       marcarModuloConcluido('A1')
+      sincronizarEmSegundoPlano(empresaId)
       Alert.alert('Salvo!', 'Histórico de consumo salvo.')
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')

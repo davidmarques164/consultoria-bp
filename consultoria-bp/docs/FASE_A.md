@@ -52,6 +52,25 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
   dele encontra a pasta compartilhada pelo nome e grava as empresas lá dentro;
 - o modelo V9 em branco é posto uma vez em `Consultoria B+P/modelo`; o app copia para cada empresa.
 
+## Quando a pasta do Drive é atualizada
+
+- **No cadastro da empresa:** a pasta é criada e recebe o cartão CNPJ e o `atendimento.json`.
+- **A cada "Salvar"** de qualquer tela (A1, A4, A5–A13, B2) e ao trocar o cartão: o app envia em
+  segundo plano o que mudou.
+- **Botão "Salvar" da tela da empresa:** faz o envio na hora e mostra o resultado.
+- **Sem internet, ou se o envio falhar:** a empresa entra numa fila guardada no aparelho. A fila é
+  processada quando a conexão volta e ao abrir o app; a empresa só sai dela quando o envio dá certo.
+
+Os envios de uma mesma empresa rodam um de cada vez (`src/utils/serie.ts`), para que salvar duas telas
+seguidas não crie pastas nem arquivos em dobro.
+
+## Finalizar e reabrir
+
+A tela da empresa tem só duas ações: **Salvar** e **Finalizar consultoria**. Finalizar pede confirmação
+numa janela ("Tem certeza...?"), que lista as pendências sem impedir. Confirmado, a data de fim é
+gravada e a empresa vai para Empresas Finalizadas. Lá, tocar na empresa oferece **Reabrir**: ela volta
+para Em Atendimento e, ao finalizar de novo, a data de fim passa a ser a nova.
+
 ## Onde está cada coisa no código (pasta `app/`)
 
 | Arquivo | Papel |
@@ -69,11 +88,13 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
 | `src/services/exportAtendimento.ts` | Lê o banco e devolve o pacote da empresa |
 | `src/services/driveClient.ts` | Chamadas ao Google Drive com o token do consultor |
 | `src/services/syncPacote.ts` | Leva o pacote para a pasta: cria o que falta, não duplica o que já foi, avisa do que falhou |
-| `src/services/syncEmpresa.ts` | Junta token, sistema de arquivos e banco do aparelho; é o que as telas chamam |
+| `src/services/syncEmpresa.ts` | Junta token, sistema de arquivos e banco do aparelho; um envio por empresa de cada vez |
+| `src/services/syncQueue.ts` | Envio em segundo plano depois de cada "Salvar" e fila para quando não há internet |
 | `src/services/arquivosLocais.ts` | Copia fotos e faturas para o armazenamento permanente do app |
 | `scripts/teste-drive.ts` | Teste da sincronização contra um Drive simulado |
 | `scripts/teste-fase-a.ts` | Teste com empresa fictícia: `npm run teste:fase-a` |
 | `scripts/teste-banco.ts` | Teste do esquema, das migrações e do SQL com o SQLite do Node no lugar do expo-sqlite |
+| `scripts/teste-envio.ts` | Teste de ponta a ponta do envio automático: cadastro sem internet, fila, conexão de volta, salvamentos seguidos, finalizar e reabrir |
 
 ## Regras do contrato
 
@@ -99,16 +120,26 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
 6. Faturas — feito na tela A1; falta o teste no aparelho.
 7. Levantamento de cargas — feito na tela A4; falta o teste no aparelho.
 8. Intervenções — feito nas telas A5 a A13; falta o teste no aparelho.
-9. Conclusão com confirmação dupla.
+9. Conclusão com confirmação dupla e reabertura — feito; falta o teste no aparelho.
 10. Teste de ponta a ponta.
 11. Versão web e `.exe`.
+
+## Gerar o APK (instalação sem loja)
+
+Na pasta `app`, com o `google-services.json` presente:
+
+```
+eas build -p android --profile preview
+```
+
+O EAS devolve um link para baixar o `.apk`, que se instala direto no celular e não precisa do Metro.
 
 ## Teste da etapa 3 no aparelho
 
 1. Entrar no app com a conta Google do responsável.
 2. Cadastrar uma empresa de teste. Basta o nome. A pasta `Consultoria B+P/<Nome da empresa>` deve aparecer no Drive.
-3. Abrir a empresa e tocar em **Enviar pasta ao Drive**. A pasta deve receber `atendimento.json` e `atendimento.md`.
-4. Pôr o modelo V9 em `Consultoria B+P/modelo` e enviar de novo: a cópia aparece em `<empresa>/modelo`.
-5. Tocar em **Abrir pasta no Drive** e conferir.
+3. A pasta deve receber sozinha `cartao_cnpj.pdf`, `atendimento.json` e `atendimento.md`.
+4. Pôr o modelo V9 em `Consultoria B+P/modelo`, abrir a empresa e tocar em **Salvar**: a cópia aparece em `<empresa>/modelo`.
+5. Salvar um módulo com o celular em modo avião, religar a internet e conferir que os arquivos chegaram.
 
 O backend não precisa estar rodando para nenhum desses passos.

@@ -12,6 +12,7 @@ import FotosCampo from '../../components/atendimento/FotosCampo'
 import { updateAtendimento } from '../../db/operations'
 import { excluirCarga, listarCargas, salvarCarga } from '../../db/faseA'
 import { apagarArquivo } from '../../services/arquivosLocais'
+import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { Carga } from '../../types/faseA'
 import { cargaDoForm, formCargaEmBranco, formCargaVazio, formDaCarga, FormCarga } from '../../utils/formularios'
@@ -79,6 +80,7 @@ export default function A4_LevantamentoCargasScreen() {
             if (c.id) await excluirCarga(c.id)
             for (const f of c.fotos) await apagarArquivo(f).catch(() => {})
             setCartoes((p) => p.filter((x) => x.chave !== c.chave))
+            if (c.id && salvas[c.id]) sincronizarEmSegundoPlano(empresaId)
           } catch (e: any) {
             Alert.alert('Erro', e?.message ?? 'Não foi possível remover.')
           }
@@ -102,6 +104,7 @@ export default function A4_LevantamentoCargasScreen() {
       await updateAtendimento(atendimentoId, { status_modulos: { A4: preenchidos.length > 0 } })
       if (preenchidos.length > 0) marcarModuloConcluido('A4')
       await carregar()
+      sincronizarEmSegundoPlano(empresaId)
       Alert.alert('Salvo!', `${preenchidos.length} carga(s) salva(s).`)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')

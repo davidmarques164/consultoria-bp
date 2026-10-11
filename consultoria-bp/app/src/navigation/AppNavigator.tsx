@@ -16,7 +16,6 @@ import A4_LevantamentoCargasScreen from '../screens/modulos/A4_LevantamentoCarga
 import SistemaScreen from '../screens/modulos/SistemaScreen'
 import B2_DadosGeraisScreen from '../screens/modulos/B2_DadosGeraisScreen'
 import { CONFIG_SISTEMAS } from '../constants/sistemas'
-import GerarRelatorioScreen from '../screens/relatorio/GerarRelatorioScreen'
 
 const Stack = createStackNavigator<AppStackParamList>()
 
@@ -42,7 +41,6 @@ export default function AppNavigator() {
         <Stack.Screen key={c.rota} name={c.rota as keyof AppStackParamList} component={SistemaScreen} options={{ title: `${c.aba} — ${c.titulo}` }} />
       ))}
       <Stack.Screen name="B2_DadosGerais" component={B2_DadosGeraisScreen} options={{ title: 'B2 — Dados Gerais' }} />
-      <Stack.Screen name="GerarRelatorio" component={GerarRelatorioScreen} options={{ title: 'Gerar Relatório' }} />
     </Stack.Navigator>
   )
 }

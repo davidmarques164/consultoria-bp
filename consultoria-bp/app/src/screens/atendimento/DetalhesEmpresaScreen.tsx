@@ -1,34 +1,29 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import type { RouteProp } from '@react-navigation/native'
-import * as WebBrowser from 'expo-web-browser'
 import * as DocumentPicker from 'expo-document-picker'
+import NetInfo from '@react-native-community/netinfo'
 import { AppStackParamList } from '../../navigation/types'
 import { Colors } from '../../constants/colors'
-import { getEmpresa, getAtendimento, getOrCreateAtendimento, getHistoricoConsumo, getUsosFinals, updateEmpresa } from '../../db/operations'
+import { CONFIG_SISTEMAS } from '../../constants/sistemas'
+import { getEmpresa, getAtendimento, getOrCreateAtendimento, updateEmpresa } from '../../db/operations'
+import { concluirAtendimento } from '../../db/faseA'
 import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
-import { sincronizarCompleto } from '../../services/backendApi'
-import NetInfo from '@react-native-community/netinfo'
-import { enqueueSync } from '../../services/syncQueue'
+import { exportarAtendimento } from '../../services/exportAtendimento'
+import { sincronizarEmpresa } from '../../services/syncEmpresa'
+import { resumoDaSincronizacao } from '../../services/syncPacote'
+import { enqueueSync, sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAuthStore } from '../../store/authStore'
+import { useEmpresaStore } from '../../store/empresaStore'
 import { Empresa } from '../../types/empresa'
 import { DadosAtendimento } from '../../types/atendimento'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import SectionHeader from '../../components/common/SectionHeader'
 import { formatCNPJ } from '../../utils/formatters'
-import { sincronizarEmpresa } from '../../services/syncEmpresa'
-import { resumoDaSincronizacao } from '../../services/syncPacote'
-import { urlDaPasta } from '../../services/driveClient'
-import { CONFIG_SISTEMAS } from '../../constants/sistemas'
+import { pendenciasDaConclusao } from '../../utils/validacoes'
 
 type Nav = StackNavigationProp<AppStackParamList>
 type Route = RouteProp<AppStackParamList, 'DetalhesEmpresa'>
@@ -59,6 +54,7 @@ export default function DetalhesEmpresaScreen() {
   const route = useRoute<Route>()
   const { empresaId } = route.params
   const consultor = useAuthStore((s) => s.consultor)
+  const atualizarNaLista = useEmpresaStore((s) => s.updateEmpresa)
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [atendimento, setAtendimento] = useState<DadosAtendimento | null>(null)
@@ -107,68 +103,58 @@ export default function DetalhesEmpresaScreen() {
     navigation.navigate(nav as any, navParams)
   }
 
-  const handleAbrirPlanilha = async () => {
-    if (empresa?.planilha_url) {
-      await WebBrowser.openBrowserAsync(empresa.planilha_url)
-    }
-  }
-
-  const handleSincronizar = async () => {
-    if (!empresa?.planilha_id) {
-      Alert.alert(
-        'Planilha sendo criada',
-        'A estrutura no Google Drive ainda está sendo configurada. Aguarde alguns segundos e tente novamente.'
-      )
-      return
-    }
-    if (!atendimento) {
-      Alert.alert('Atenção', 'Sem atendimento carregado.')
-      return
-    }
-    const netState = await NetInfo.fetch()
-    if (!netState.isConnected) {
+  // Salvar: envia a pasta da empresa (atendimento.json, cartão, faturas, fotos) para o Drive e mostra o resultado.
+  // Cada "Salvar" dos módulos já pede esse envio em segundo plano; este botão faz o envio na hora.
+  const handleSalvar = async () => {
+    const rede = await NetInfo.fetch()
+    if (!rede.isConnected) {
       await enqueueSync(empresaId)
-      Alert.alert('Offline', 'Sincronização agendada. Será enviada automaticamente quando houver conexão.')
-      return
-    }
-    setSyncing(true)
-    try {
-      const [historico, usos_finais] = await Promise.all([
-        getHistoricoConsumo(atendimentoId!),
-        getUsosFinals(atendimentoId!),
-      ])
-      await sincronizarCompleto({
-        planilha_id: empresa.planilha_id,
-        empresa,
-        atendimento,
-        historico: Object.keys(historico).length > 0 ? historico : undefined,
-        usos_finais: usos_finais.length > 0 ? usos_finais : undefined,
-      })
-      Alert.alert('Sincronizado!', 'Dados enviados para a planilha no Google Sheets.')
-    } catch (e: any) {
-      Alert.alert('Erro ao sincronizar', e.message ?? 'Verifique a conexão e tente novamente.')
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  // Fase A: envia a pasta da empresa (atendimento.json, fotos, faturas) para o Drive do consultor
-  const handleEnviarPasta = async () => {
-    const netState = await NetInfo.fetch()
-    if (!netState.isConnected) {
-      await enqueueSync(empresaId)
-      Alert.alert('Sem internet', 'O envio foi agendado e será feito quando houver conexão.')
+      Alert.alert('Sem internet', 'Os dados estão salvos no aparelho. O envio ao Drive será feito quando houver conexão.')
       return
     }
     setSyncing(true)
     try {
       const r = await sincronizarEmpresa(empresaId, { nome: consultor?.nome ?? null, email: consultor?.email ?? null })
       setEmpresa((e) => (e ? { ...e, drive_folder_id: r.pastaId } : e))
-      Alert.alert('Pasta enviada', resumoDaSincronizacao(r))
+      Alert.alert('Salvo', resumoDaSincronizacao(r))
     } catch (e: any) {
-      Alert.alert('Erro ao enviar', e.message ?? 'Verifique a conexão e tente novamente.')
+      await enqueueSync(empresaId).catch(() => {})
+      Alert.alert('Não foi possível enviar agora', `${e?.message ?? 'Verifique a conexão.'}\n\nOs dados estão salvos no aparelho e o envio será tentado de novo.`)
     } finally {
       setSyncing(false)
+    }
+  }
+
+  // Finalizar: dois passos — o botão e a janela de confirmação. Só a confirmação grava a data de fim.
+  const handleFinalizar = async () => {
+    if (!atendimentoId) { Alert.alert('Aguarde', 'Carregando...'); return }
+    let pendencias: string[] = []
+    try {
+      const pacote = await exportarAtendimento(empresaId, atendimentoId, { nome: consultor?.nome ?? null, email: consultor?.email ?? null })
+      pendencias = pendenciasDaConclusao(pacote.json)
+    } catch { /* a conferência é só um aviso: sem ela a finalização continua possível */ }
+    const aviso = pendencias.length > 0 ? `\n\nPendências (não impedem finalizar):\n• ${pendencias.join('\n• ')}` : ''
+    Alert.alert(
+      'Finalizar consultoria',
+      `Tem certeza de que quer finalizar a consultoria de ${empresa?.razao_social ?? 'esta empresa'}?\n\nA data de fim será a de hoje e a empresa irá para Empresas Finalizadas. Você poderá reabrir depois.${aviso}`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sim, finalizar', style: 'destructive', onPress: confirmarFinalizacao },
+      ]
+    )
+  }
+
+  const confirmarFinalizacao = async () => {
+    if (!atendimentoId) return
+    try {
+      await concluirAtendimento(atendimentoId, empresaId)
+      atualizarNaLista(empresaId, { status: 'finalizada' })
+      sincronizarEmSegundoPlano(empresaId)
+      Alert.alert('Consultoria finalizada', 'A empresa está em Empresas Finalizadas.')
+      if (navigation.canGoBack()) navigation.goBack()
+      else navigation.navigate('Home')
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message ?? 'Não foi possível finalizar.')
     }
   }
 
@@ -181,13 +167,10 @@ export default function DetalhesEmpresaScreen() {
       await updateEmpresa(empresaId, { cartao_cnpj_path: novo, cartao_cnpj_nome: r.assets[0].name })
       if (empresa.cartao_cnpj_path) await apagarArquivo(empresa.cartao_cnpj_path).catch(() => {})
       setEmpresa({ ...empresa, cartao_cnpj_path: novo, cartao_cnpj_nome: r.assets[0].name })
+      sincronizarEmSegundoPlano(empresaId)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível guardar o cartão CNPJ.')
     }
-  }
-
-  const handleAbrirPasta = async () => {
-    if (empresa?.drive_folder_id) await WebBrowser.openBrowserAsync(urlDaPasta(empresa.drive_folder_id))
   }
 
   if (loading || !empresa) return <LoadingOverlay visible={true} message="Carregando..." />
@@ -202,6 +185,13 @@ export default function DetalhesEmpresaScreen() {
         {!!empresa.cnpj && <Text style={styles.cnpj}>CNPJ: {formatCNPJ(empresa.cnpj)}</Text>}
         {empresa.concessionaria && <Text style={styles.detail}>Concessionária: {empresa.concessionaria} — {empresa.subgrupo}</Text>}
         {empresa.municipio && <Text style={styles.detail}>{empresa.municipio} / {empresa.uf}</Text>}
+        <TouchableOpacity onPress={handleCartaoCnpj} activeOpacity={0.7}>
+          {empresa.cartao_cnpj_path ? (
+            <Text style={styles.detail} numberOfLines={1}>🧾 Cartão CNPJ: {empresa.cartao_cnpj_nome ?? 'enviado'} <Text style={styles.link}>trocar</Text></Text>
+          ) : (
+            <Text style={styles.pendente}>🧾 Cartão CNPJ pendente — toque para enviar</Text>
+          )}
+        </TouchableOpacity>
         <View style={styles.progressRow}>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${(totalConcluidos / TODOS_MODULOS.length) * 100}%` }]} />
@@ -238,21 +228,8 @@ export default function DetalhesEmpresaScreen() {
 
       {/* Ações */}
       <SectionHeader title="AÇÕES" />
-      <ActionButton
-        icon="🧾"
-        label={empresa.cartao_cnpj_path ? `Cartão CNPJ: ${empresa.cartao_cnpj_nome ?? 'enviado'} (trocar)` : 'Enviar cartão CNPJ (pendente)'}
-        color={empresa.cartao_cnpj_path ? Colors.gray : Colors.danger}
-        onPress={handleCartaoCnpj}
-      />
-      <ActionButton icon="📁" label="Enviar pasta ao Drive" color={Colors.primary} onPress={handleEnviarPasta} />
-      {empresa.drive_folder_id && (
-        <ActionButton icon="↗" label="Abrir pasta no Drive" color={Colors.gray} onPress={handleAbrirPasta} />
-      )}
-      <ActionButton icon="📊" label="Sincronizar Planilha" color={Colors.blue} onPress={handleSincronizar} />
-      <ActionButton icon="📄" label="Gerar Relatório PDF" color={Colors.primary} onPress={() => navigateToModulo('GerarRelatorio')} />
-      {empresa.planilha_url && (
-        <ActionButton icon="↗" label="Abrir no Google Sheets" color={Colors.gray} onPress={handleAbrirPlanilha} />
-      )}
+      <ActionButton icon="💾" label="Salvar" color={Colors.primary} onPress={handleSalvar} />
+      <ActionButton icon="🏁" label="Finalizar consultoria" color={Colors.danger} onPress={handleFinalizar} />
 
       <View style={{ height: 40 }} />
     </KeyboardScrollView>
@@ -296,6 +273,8 @@ const styles = StyleSheet.create({
   nome: { fontSize: 18, fontWeight: '700', color: Colors.black, marginBottom: 4 },
   cnpj: { fontSize: 14, color: Colors.gray, marginBottom: 2 },
   detail: { fontSize: 13, color: Colors.gray, marginBottom: 2 },
+  link: { color: Colors.blue, fontWeight: '700' },
+  pendente: { fontSize: 13, color: Colors.danger, fontWeight: '700', marginBottom: 2 },
   progressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },
   progressTrack: { flex: 1, height: 6, backgroundColor: Colors.grayLight, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 3 },

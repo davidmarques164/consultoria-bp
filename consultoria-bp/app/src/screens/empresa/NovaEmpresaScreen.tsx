@@ -16,7 +16,7 @@ import { useEmpresaStore } from '../../store/empresaStore'
 import { createEmpresa, listEmpresas } from '../../db/operations'
 import { Empresa } from '../../types/empresa'
 import { novoId } from '../../utils/id'
-import { garantirPastaDaEmpresa } from '../../services/syncEmpresa'
+import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { mesmaPasta, nomePastaEmpresa } from '../../utils/atendimentoJson'
 import { guardarArquivo } from '../../services/arquivosLocais'
 
@@ -129,15 +129,8 @@ export default function NovaEmpresaScreen() {
 
     navigation.replace('DetalhesEmpresa', { empresaId })
 
-    // A pasta no Drive é criada em segundo plano, com o login Google do próprio consultor
-    garantirPastaDaEmpresa(empresaId).catch((e) => {
-      console.log('[DRIVE] Erro ao criar a pasta:', e?.message)
-      Alert.alert(
-        'Aviso',
-        'Empresa salva no aparelho, mas a pasta no Google Drive não foi criada agora. Ela será criada na próxima sincronização.',
-        [{ text: 'OK' }]
-      )
-    })
+    // Cria a pasta no Drive e envia o cartão CNPJ em segundo plano; sem internet, fica na fila e vai quando houver conexão
+    sincronizarEmSegundoPlano(empresaId)
   }
 
   return (

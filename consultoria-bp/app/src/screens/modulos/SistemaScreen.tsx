@@ -12,6 +12,7 @@ import FotosCampo from '../../components/atendimento/FotosCampo'
 import { updateAtendimento } from '../../db/operations'
 import { excluirIntervencao, getAtendimentoFaseA, listarIntervencoes, marcarSistemaNaoAplicavel, salvarIntervencao } from '../../db/faseA'
 import { apagarArquivo } from '../../services/arquivosLocais'
+import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { PeriodoMedicao } from '../../types/atendimentoJson'
 import { Intervencao } from '../../types/faseA'
@@ -87,6 +88,7 @@ export default function SistemaScreen() {
       await marcarSistemaNaoAplicavel(atendimentoId, cfg.aba, novo)
       await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: novo || Object.keys(salvas).length > 0 } })
       if (novo) marcarModuloConcluido(cfg.aba)
+      sincronizarEmSegundoPlano(empresaId)
     } catch (e: any) {
       setNaoAplicavel(!novo)
       Alert.alert('Erro', e?.message ?? 'Não foi possível gravar.')
@@ -105,6 +107,7 @@ export default function SistemaScreen() {
               if (f) await apagarArquivo(f).catch(() => {})
             }
             setCartoes((p) => p.filter((x) => x.chave !== c.chave))
+            if (c.id && salvas[c.id]) sincronizarEmSegundoPlano(empresaId)
           } catch (e: any) {
             Alert.alert('Erro', e?.message ?? 'Não foi possível remover.')
           }
@@ -129,6 +132,7 @@ export default function SistemaScreen() {
       await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: concluido } })
       if (concluido) marcarModuloConcluido(cfg.aba)
       await carregar()
+      sincronizarEmSegundoPlano(empresaId)
       Alert.alert('Salvo!', naoAplicavel ? `${cfg.titulo}: marcado como não aplicável.` : `${cfg.titulo}: ${preenchidos.length} item(ns) salvo(s).`)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')

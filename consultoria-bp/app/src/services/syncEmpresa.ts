@@ -10,6 +10,10 @@ import { ResultadoDaSincronizacao, sincronizarPacote } from './syncPacote'
 import { getEmpresa, getOrCreateAtendimento, updateEmpresa } from '../db/operations'
 import { getArquivoEnviado, registrarArquivoEnviado } from '../db/faseA'
 import { nomePastaEmpresa } from '../utils/atendimentoJson'
+import { criarSerie } from '../utils/serie'
+
+// Um envio por empresa de cada vez: salvar duas telas seguidas não cria pastas nem arquivos em dobro.
+const emSerie = criarSerie()
 
 const enviarLocal: EnviarLocal = async (url, uri, headers) => {
   const r = await FileSystem.uploadAsync(url, uri, {
@@ -29,20 +33,18 @@ async function tamanho(uri: string): Promise<number | null> {
   }
 }
 
-/** Cria (ou encontra) a pasta da empresa no Drive e guarda o id no aparelho. Usado logo após o cadastro. */
-export async function garantirPastaDaEmpresa(empresaId: string): Promise<string> {
-  const empresa = await getEmpresa(empresaId)
-  if (!empresa) throw new Error('Empresa não encontrada no aparelho.')
-  if (empresa.drive_folder_id) return empresa.drive_folder_id
-  const drive = criarDrive(getValidToken)
-  const raiz = await drive.garantirPastaRaiz()
-  const pastaId = await drive.garantirPasta(nomePastaEmpresa(empresa.razao_social), raiz)
-  await updateEmpresa(empresaId, { drive_folder_id: pastaId })
-  return pastaId
+/**
+ * Envia para a pasta da empresa tudo o que mudou: cartão CNPJ, fotos, faturas, atendimento.json e o resumo.
+ * Cria a pasta se ela ainda não existir. `aoIniciar` é chamado quando o envio começa a ler os dados
+ * (o que for salvo depois disso precisa de um novo envio).
+ */
+export function sincronizarEmpresa(
+  empresaId: string, consultor: { nome: string | null; email: string | null }, aoIniciar?: () => void,
+): Promise<ResultadoDaSincronizacao> {
+  return emSerie(empresaId, () => { aoIniciar?.(); return enviar(empresaId, consultor) })
 }
 
-/** Envia para a pasta da empresa tudo o que mudou: fotos, faturas, atendimento.json e o resumo. */
-export async function sincronizarEmpresa(empresaId: string, consultor: { nome: string | null; email: string | null }): Promise<ResultadoDaSincronizacao> {
+async function enviar(empresaId: string, consultor: { nome: string | null; email: string | null }): Promise<ResultadoDaSincronizacao> {
   const empresa = await getEmpresa(empresaId)
   if (!empresa) throw new Error('Empresa não encontrada no aparelho.')
   const atendimentoId = await getOrCreateAtendimento(empresaId, { consultor_1: consultor.nome ?? '', tipo_consultoria: 'Eficiência Energética', status_modulos: {} })
