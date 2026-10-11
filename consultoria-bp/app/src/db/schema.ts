@@ -7,8 +7,97 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
     _db = await SQLite.openDatabaseAsync('consultoria_bp.db')
     await _db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;')
     await initSchema(_db)
+    await migrarFaseA(_db)
   }
   return _db
+}
+
+/** Acrescenta uma coluna a uma tabela que já existe no aparelho (bancos criados antes da fase A). */
+async function addColumnIfMissing(db: SQLite.SQLiteDatabase, tabela: string, coluna: string, definicao: string) {
+  const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${tabela})`)
+  if (!cols.some((c) => c.name === coluna)) {
+    await db.execAsync(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${definicao}`)
+  }
+}
+
+/**
+ * Fase A: o app deixa de espelhar a planilha e passa a guardar cargas, intervenções e ações
+ * tarifárias, que viram o atendimento.json da pasta da empresa. As tabelas antigas ficam intactas.
+ */
+async function migrarFaseA(db: SQLite.SQLiteDatabase) {
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS cargas (
+      id TEXT PRIMARY KEY,
+      atendimento_id TEXT NOT NULL REFERENCES atendimentos(id),
+      ordem INTEGER DEFAULT 0,
+      tipo TEXT NOT NULL,
+      descricao TEXT NOT NULL,
+      local TEXT,
+      potencia_w REAL NOT NULL,
+      potencia_origem TEXT DEFAULT 'informada',
+      quantidade INTEGER DEFAULT 1,
+      em_uso INTEGER DEFAULT 1,
+      dias_semana REAL,
+      dias_mes REAL,
+      intervalos TEXT DEFAULT '[]',
+      uso_final TEXT,
+      fotos TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS intervencoes (
+      id TEXT PRIMARY KEY,
+      atendimento_id TEXT NOT NULL REFERENCES atendimentos(id),
+      ordem INTEGER DEFAULT 0,
+      sistema TEXT NOT NULL,
+      acao TEXT NOT NULL,
+      descricao TEXT,
+      carga_ids TEXT DEFAULT '[]',
+      quantidade_modificada INTEGER,
+      local TEXT,
+      placa TEXT DEFAULT '{}',
+      medicao_unidade TEXT,
+      medicao_periodo TEXT,
+      dias_uso_mes REAL,
+      antes_valor REAL,
+      antes_data TEXT,
+      antes_foto TEXT,
+      depois_valor REAL,
+      depois_data TEXT,
+      depois_foto TEXT,
+      horas_antes REAL,
+      horas_depois REAL,
+      investimento_rs REAL,
+      realizada INTEGER,
+      fotos_antes TEXT DEFAULT '[]',
+      fotos_depois TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS acoes_tarifarias (
+      id TEXT PRIMARY KEY,
+      atendimento_id TEXT NOT NULL REFERENCES atendimentos(id),
+      tipo TEXT NOT NULL,
+      proposta TEXT,
+      reducao_prevista_rs_ano REAL,
+      investimento_rs REAL,
+      sera_realizada INTEGER,
+      foi_realizada INTEGER,
+      reducao_real_rs_ano REAL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+  await addColumnIfMissing(db, 'atendimentos', 'inicio', 'TEXT')
+  await addColumnIfMissing(db, 'atendimentos', 'fim', 'TEXT')
+  await addColumnIfMissing(db, 'atendimentos', 'unidade_e_da_empresa', 'INTEGER')
+  await addColumnIfMissing(db, 'atendimentos', 'geracao_solar', 'INTEGER')
+  await addColumnIfMissing(db, 'atendimentos', 'observacao_consumo', 'TEXT')
+  await addColumnIfMissing(db, 'atendimentos', 'consumo_medio_informado_kwh_mes', 'REAL')
+  await addColumnIfMissing(db, 'faturas', 'senha', 'TEXT')
+  await addColumnIfMissing(db, 'faturas', 'nome_arquivo', 'TEXT')
 }
 
 async function initSchema(db: SQLite.SQLiteDatabase) {
