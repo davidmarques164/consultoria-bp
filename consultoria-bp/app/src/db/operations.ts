@@ -1,7 +1,7 @@
 import { getDB } from './schema'
 import { Empresa } from '../types/empresa'
 import { DadosAtendimento, HistoricoMes, UsoFinal } from '../types/atendimento'
-import { v4 as uuidv4 } from 'uuid'
+import { novoId } from '../utils/id'
 
 // ── EMPRESAS ────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ export async function getEmpresa(id: string): Promise<Empresa | null> {
 
 export async function createAtendimento(data: Partial<DadosAtendimento> & { empresa_id: string }): Promise<string> {
   const db = await getDB()
-  const id = uuidv4()
+  const id = novoId()
   const now = new Date().toISOString()
   await db.runAsync(
     `INSERT INTO atendimentos (id,empresa_id,tipo_consultoria,consultor_1,consultor_2,
@@ -187,7 +187,7 @@ export async function upsertHistoricoConsumo(
     for (const mes of meses) {
       await db.runAsync(
         'INSERT INTO historico_consumo (id,atendimento_id,insumo,mes,consumo,valor) VALUES (?,?,?,?,?,?)',
-        [uuidv4(), atendimento_id, insumo, mes.mes, mes.consumo ?? null, mes.valor ?? null]
+        [novoId(), atendimento_id, insumo, mes.mes, mes.consumo ?? null, mes.valor ?? null]
       )
     }
   })
@@ -217,7 +217,7 @@ export async function upsertUsosFinals(atendimento_id: string, usos: UsoFinal[])
       const u = usos[i]
       await db.runAsync(
         'INSERT INTO usos_finais (id,atendimento_id,geracao,consumo_local,energia_mensal,unidade,pci,ordem) VALUES (?,?,?,?,?,?,?,?)',
-        [uuidv4(), atendimento_id, u.geracao, u.consumo, u.energia_mensal, u.unidade, u.pci, i]
+        [novoId(), atendimento_id, u.geracao, u.consumo, u.energia_mensal, u.unidade, u.pci, i]
       )
     }
   })
@@ -248,7 +248,7 @@ export async function createFatura(data: {
   confianca?: string
 }): Promise<string> {
   const db = await getDB()
-  const id = uuidv4()
+  const id = novoId()
   await db.runAsync(
     'INSERT INTO faturas (id,empresa_id,arquivo_path,mes_referencia,dados_extraidos,confianca) VALUES (?,?,?,?,?,?)',
     [id, data.empresa_id, data.arquivo_path ?? null, data.mes_referencia ?? null,

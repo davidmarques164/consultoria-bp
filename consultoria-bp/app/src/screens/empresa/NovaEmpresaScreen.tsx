@@ -14,7 +14,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useEmpresaStore } from '../../store/empresaStore'
 import { createEmpresa, listEmpresas } from '../../db/operations'
 import { Empresa } from '../../types/empresa'
-import { v4 as uuidv4 } from 'uuid'
+import { novoId } from '../../utils/id'
 import { garantirPastaDaEmpresa } from '../../services/syncEmpresa'
 import { mesmaPasta, nomePastaEmpresa } from '../../utils/atendimentoJson'
 
@@ -50,56 +50,57 @@ export default function NovaEmpresaScreen() {
     }
 
     setLoading(true)
-    const empresaId = uuidv4()
-    const now = new Date().toISOString()
-    const empresa: Empresa = {
-      id: empresaId,
-      cnpj: '',
-      razao_social: pasta,
-      nome_fantasia: null,
-      porte: null,
-      faixa_faturamento: null,
-      cnae_principal: null,
-      logradouro: null,
-      numero: null,
-      bairro: null,
-      cep: null,
-      municipio: null,
-      uf: null,
-      email: null,
-      telefone: null,
-      situacao_cadastral: null,
-      concessionaria: null,
-      subgrupo: null,
-      regime_trabalho: null,
-      horario_trabalho: null,
-      responsavel_empresa: null,
-      status: 'em_atendimento',
-      drive_folder_id: null,
-      planilha_id: null,
-      planilha_url: null,
-      consultor_email: consultor.email,
-      created_at: now,
-      updated_at: now,
-    }
-
+    let empresaId = ''
     try {
       // Duas empresas com o mesmo nome usariam a mesma pasta no Drive
       const existentes = await listEmpresas(consultor.email)
       if (existentes.some((e) => mesmaPasta(e.razao_social, pasta))) {
         setErro('Já existe uma empresa com esse nome. Use um nome diferente.')
-        setLoading(false)
         return
+      }
+      empresaId = novoId()
+      const now = new Date().toISOString()
+      const empresa: Empresa = {
+        id: empresaId,
+        cnpj: '',
+        razao_social: pasta,
+        nome_fantasia: null,
+        porte: null,
+        faixa_faturamento: null,
+        cnae_principal: null,
+        logradouro: null,
+        numero: null,
+        bairro: null,
+        cep: null,
+        municipio: null,
+        uf: null,
+        email: null,
+        telefone: null,
+        situacao_cadastral: null,
+        concessionaria: null,
+        subgrupo: null,
+        regime_trabalho: null,
+        horario_trabalho: null,
+        responsavel_empresa: null,
+        status: 'em_atendimento',
+        drive_folder_id: null,
+        planilha_id: null,
+        planilha_url: null,
+        consultor_email: consultor.email,
+        created_at: now,
+        updated_at: now,
       }
       await createEmpresa(empresa)
       addEmpresa(empresa)
     } catch (e: any) {
-      Alert.alert('Erro', e.message ?? 'Não foi possível salvar a empresa.')
-      setLoading(false)
+      console.log('[CADASTRO] Erro ao salvar a empresa:', e?.message)
+      Alert.alert('Erro', e?.message ?? 'Não foi possível salvar a empresa.')
       return
+    } finally {
+      // Qualquer que seja o resultado, a tela nunca fica presa em "Salvando empresa..."
+      setLoading(false)
     }
 
-    setLoading(false)
     navigation.replace('DetalhesEmpresa', { empresaId })
 
     // A pasta no Drive é criada em segundo plano, com o login Google do próprio consultor

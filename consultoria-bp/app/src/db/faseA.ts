@@ -2,7 +2,7 @@
  * Operações de banco da fase A: cargas, intervenções, ações tarifárias, datas de início e fim.
  * A data de início é gravada quando o primeiro dado da empresa é salvo; a de fim, na conclusão.
  */
-import { v4 as uuidv4 } from 'uuid'
+import { novoId } from '../utils/id'
 import { getDB } from './schema'
 import { AcaoTarifaria, AtendimentoFaseA, Carga, FaturaArquivo, Intervencao } from '../types/faseA'
 import { TipoTarifario } from '../types/atendimentoJson'
@@ -93,7 +93,7 @@ export async function listarCargas(atendimentoId: string): Promise<Carga[]> {
 export async function salvarCarga(c: Omit<Carga, 'id' | 'ordem'> & { id?: string; ordem?: number }): Promise<string> {
   const db = await getDB()
   const t = agora()
-  const id = c.id ?? uuidv4()
+  const id = c.id ?? novoId()
   let ordem = c.ordem
   if (ordem === undefined) {
     const m = await db.getFirstAsync<{ n: number | null }>('SELECT MAX(ordem) AS n FROM cargas WHERE atendimento_id = ?', [c.atendimento_id])
@@ -147,7 +147,7 @@ export async function listarIntervencoes(atendimentoId: string): Promise<Interve
 export async function salvarIntervencao(i: Omit<Intervencao, 'id' | 'ordem'> & { id?: string; ordem?: number }): Promise<string> {
   const db = await getDB()
   const t = agora()
-  const id = i.id ?? uuidv4()
+  const id = i.id ?? novoId()
   let ordem = i.ordem
   if (ordem === undefined) {
     const m = await db.getFirstAsync<{ n: number | null }>('SELECT MAX(ordem) AS n FROM intervencoes WHERE atendimento_id = ?', [i.atendimento_id])
@@ -197,7 +197,7 @@ export async function listarAcoesTarifarias(atendimentoId: string): Promise<Acao
 export async function salvarAcaoTarifaria(a: Omit<AcaoTarifaria, 'id'> & { id?: string }): Promise<string> {
   const db = await getDB()
   const t = agora()
-  const id = a.id ?? uuidv4()
+  const id = a.id ?? novoId()
   await db.runAsync(
     `INSERT INTO acoes_tarifarias (id,atendimento_id,tipo,proposta,reducao_prevista_rs_ano,investimento_rs,sera_realizada,
        foi_realizada,reducao_real_rs_ano,created_at,updated_at)
@@ -231,7 +231,7 @@ export async function listarFaturasArquivo(empresaId: string): Promise<FaturaArq
 
 export async function salvarFaturaArquivo(empresaId: string, atendimentoId: string, f: Omit<FaturaArquivo, 'id'> & { id?: string }): Promise<string> {
   const db = await getDB()
-  const id = f.id ?? uuidv4()
+  const id = f.id ?? novoId()
   await db.runAsync(
     `INSERT INTO faturas (id,empresa_id,arquivo_path,nome_arquivo,mes_referencia,senha) VALUES (?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET arquivo_path=excluded.arquivo_path, nome_arquivo=excluded.nome_arquivo,
@@ -259,6 +259,6 @@ export async function registrarArquivoEnviado(empresaId: string, atendimentoId: 
   await db.runAsync("DELETE FROM arquivos WHERE empresa_id = ? AND tipo = 'fase_a' AND nome_original = ?", [empresaId, destino])
   await db.runAsync(
     "INSERT INTO arquivos (id,atendimento_id,empresa_id,tipo,caminho_local,drive_file_id,nome_original,sincronizado) VALUES (?,?,?,'fase_a',?,?,?,1)",
-    [uuidv4(), atendimentoId, empresaId, origem, fileId, destino]
+    [novoId(), atendimentoId, empresaId, origem, fileId, destino]
   )
 }
