@@ -241,3 +241,24 @@ export async function salvarFaturaArquivo(empresaId: string, atendimentoId: stri
   await marcarInicio(atendimentoId)
   return id
 }
+
+// ── ARQUIVOS JÁ ENVIADOS AO DRIVE ───────────────────────────────────────────
+// Usa a tabela `arquivos` que já existia: nome_original guarda o caminho de destino dentro da pasta.
+
+export async function getArquivoEnviado(empresaId: string, destino: string): Promise<{ origem: string; fileId: string } | null> {
+  const db = await getDB()
+  const r = await db.getFirstAsync<{ caminho_local: string | null; drive_file_id: string | null }>(
+    "SELECT caminho_local, drive_file_id FROM arquivos WHERE empresa_id = ? AND tipo = 'fase_a' AND nome_original = ? AND sincronizado = 1",
+    [empresaId, destino]
+  )
+  return r?.drive_file_id && r.caminho_local ? { origem: r.caminho_local, fileId: r.drive_file_id } : null
+}
+
+export async function registrarArquivoEnviado(empresaId: string, atendimentoId: string, destino: string, origem: string, fileId: string): Promise<void> {
+  const db = await getDB()
+  await db.runAsync("DELETE FROM arquivos WHERE empresa_id = ? AND tipo = 'fase_a' AND nome_original = ?", [empresaId, destino])
+  await db.runAsync(
+    "INSERT INTO arquivos (id,atendimento_id,empresa_id,tipo,caminho_local,drive_file_id,nome_original,sincronizado) VALUES (?,?,?,'fase_a',?,?,?,1)",
+    [uuidv4(), atendimentoId, empresaId, origem, fileId, destino]
+  )
+}

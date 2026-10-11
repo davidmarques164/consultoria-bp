@@ -19,35 +19,14 @@ import SectionHeader from '../../components/common/SectionHeader'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import { useAuthStore } from '../../store/authStore'
 import { useEmpresaStore } from '../../store/empresaStore'
-import { createEmpresa, updateEmpresa } from '../../db/operations'
+import { createEmpresa } from '../../db/operations'
 import { extrairCNPJPdf } from '../../services/backendApi'
 import { formatCNPJ } from '../../utils/formatters'
 import { Empresa } from '../../types/empresa'
 import { v4 as uuidv4 } from 'uuid'
-import Constants from 'expo-constants'
+import { garantirPastaDaEmpresa } from '../../services/syncEmpresa'
 
 type Nav = StackNavigationProp<AppStackParamList>
-
-const BASE_URL: string = (Constants.expoConfig?.extra?.backendUrl as string) ?? 'http://192.168.3.103:8000'
-
-async function criarEstruturaGoogleDireto(payload: {
-  consultor_email: string
-  cnpj: string
-  razao_social: string
-}): Promise<{ consultor_folder_id: string; empresa_folder_id: string; planilha_id: string; planilha_url: string }> {
-  console.log('[DRIVE] Chamando backend:', BASE_URL)
-  const res = await fetch(`${BASE_URL}/empresa/criar-estrutura-drive`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const text = await res.text()
-  console.log('[DRIVE] Resposta raw:', text)
-  if (!res.ok) {
-    throw new Error(`Erro ${res.status}: ${text}`)
-  }
-  return JSON.parse(text)
-}
 
 export default function NovaEmpresaScreen() {
   const navigation = useNavigation<Nav>()
@@ -164,29 +143,15 @@ export default function NovaEmpresaScreen() {
     setLoading(false)
     navigation.replace('DetalhesEmpresa', { empresaId })
 
-    // Drive roda em background
-    console.log('[DRIVE] Iniciando criação de estrutura no Google Drive...')
-    criarEstruturaGoogleDireto({
-      consultor_email: consultor.email,
-      cnpj: form.cnpj,
-      razao_social: form.razao_social,
+    // A pasta no Drive é criada em segundo plano, com o login Google do próprio consultor
+    garantirPastaDaEmpresa(empresaId).catch((e) => {
+      console.log('[DRIVE] Erro ao criar a pasta:', e?.message)
+      Alert.alert(
+        'Aviso',
+        'Empresa salva no aparelho, mas a pasta no Google Drive não foi criada agora. Ela será criada na próxima sincronização.',
+        [{ text: 'OK' }]
+      )
     })
-      .then(async ({ empresa_folder_id, planilha_id, planilha_url }) => {
-        console.log('[DRIVE] Sucesso! empresa_folder_id:', empresa_folder_id)
-        await updateEmpresa(empresaId, {
-          drive_folder_id: empresa_folder_id,
-          planilha_id,
-          planilha_url,
-        })
-      })
-      .catch((e) => {
-        console.log('[DRIVE] Erro:', e.message)
-        Alert.alert(
-          'Aviso',
-          'Empresa salva localmente, mas não foi possível criar a estrutura no Google Drive. Tente sincronizar depois.',
-          [{ text: 'OK' }]
-        )
-      })
   }
 
   return (

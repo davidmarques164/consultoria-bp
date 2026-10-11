@@ -1,7 +1,8 @@
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { sincronizarCompleto } from './backendApi'
-import { getEmpresa, getAtendimento, getHistoricoConsumo, getUsosFinals } from '../db/operations'
+import { sincronizarEmpresa } from './syncEmpresa'
+import { getEmpresa } from '../db/operations'
+import { useAuthStore } from '../store/authStore'
 
 const QUEUE_KEY = 'sync_queue_v1'
 
@@ -26,33 +27,22 @@ export async function processQueue(): Promise<void> {
   const queue: SyncJob[] = JSON.parse(raw)
   if (queue.length === 0) return
 
+  const consultor = useAuthStore.getState().consultor
+  if (!consultor) return // sem login não há token do Drive: a fila espera
+
   const remaining: SyncJob[] = []
   for (const job of queue) {
     try {
       const empresa = await getEmpresa(job.empresaId)
-      const atendimento = await getAtendimento(job.empresaId)
-      if (!empresa?.planilha_id || !atendimento) {
-        // Empresa sem planilha ainda — manter na fila
-        remaining.push(job)
-        continue
-      }
-      const historico = await getHistoricoConsumo((atendimento as any).id ?? '')
-      const usos_finais = await getUsosFinals((atendimento as any).id ?? '')
-
-      await sincronizarCompleto({
-        planilha_id: empresa.planilha_id,
-        empresa,
-        atendimento,
-        historico: Object.keys(historico).length > 0 ? historico : undefined,
-        usos_finais: usos_finais.length > 0 ? usos_finais : undefined,
-      })
+      if (!empresa) continue // empresa apagada do aparelho: descarta
+      await sincronizarEmpresa(job.empresaId, { nome: consultor.nome, email: consultor.email })
       // Sucesso — não adiciona em remaining
     } catch (err) {
       console.warn('syncQueue: falha ao sincronizar', job.empresaId, err)
       if (job.tentativas < 3) {
         remaining.push({ ...job, tentativas: job.tentativas + 1 })
       }
-      // Após 3 tentativas, descarta silenciosamente
+      // Após 3 tentativas, descarta; o consultor reenvia pelo botão "Enviar pasta ao Drive"
     }
   }
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining))

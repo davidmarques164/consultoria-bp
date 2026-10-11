@@ -23,6 +23,10 @@ import { DadosAtendimento } from '../../types/atendimento'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import SectionHeader from '../../components/common/SectionHeader'
 import { formatCNPJ } from '../../utils/formatters'
+import { sincronizarEmpresa } from '../../services/syncEmpresa'
+import { resumoDaSincronizacao } from '../../services/syncPacote'
+import { urlDaPasta } from '../../services/driveClient'
+import { frasePedidoRelatorio } from '../../utils/atendimentoJson'
 
 type Nav = StackNavigationProp<AppStackParamList>
 type Route = RouteProp<AppStackParamList, 'DetalhesEmpresa'>
@@ -152,11 +156,35 @@ export default function DetalhesEmpresaScreen() {
     }
   }
 
+  // Fase A: envia a pasta da empresa (atendimento.json, fotos, faturas) para o Drive do consultor
+  const handleEnviarPasta = async () => {
+    const netState = await NetInfo.fetch()
+    if (!netState.isConnected) {
+      await enqueueSync(empresaId)
+      Alert.alert('Sem internet', 'O envio foi agendado e será feito quando houver conexão.')
+      return
+    }
+    setSyncing(true)
+    try {
+      const r = await sincronizarEmpresa(empresaId, { nome: consultor?.nome ?? null, email: consultor?.email ?? null })
+      setEmpresa((e) => (e ? { ...e, drive_folder_id: r.pastaId } : e))
+      Alert.alert('Pasta enviada', `${resumoDaSincronizacao(r)}\n\nPara gerar o relatório, peça à Claude:\n${frasePedidoRelatorio(r.pasta)}`)
+    } catch (e: any) {
+      Alert.alert('Erro ao enviar', e.message ?? 'Verifique a conexão e tente novamente.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const handleAbrirPasta = async () => {
+    if (empresa?.drive_folder_id) await WebBrowser.openBrowserAsync(urlDaPasta(empresa.drive_folder_id))
+  }
+
   if (loading || !empresa) return <LoadingOverlay visible={true} message="Carregando..." />
 
   return (
     <>
-    <LoadingOverlay visible={syncing} message="Sincronizando com a planilha..." />
+    <LoadingOverlay visible={syncing} message="Sincronizando..." />
     <KeyboardScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       {/* Info card */}
       <View style={styles.infoCard}>
@@ -200,6 +228,10 @@ export default function DetalhesEmpresaScreen() {
 
       {/* Ações */}
       <SectionHeader title="AÇÕES" />
+      <ActionButton icon="📁" label="Enviar pasta ao Drive" color={Colors.primary} onPress={handleEnviarPasta} />
+      {empresa.drive_folder_id && (
+        <ActionButton icon="↗" label="Abrir pasta no Drive" color={Colors.gray} onPress={handleAbrirPasta} />
+      )}
       <ActionButton icon="📊" label="Sincronizar Planilha" color={Colors.blue} onPress={handleSincronizar} />
       <ActionButton icon="📄" label="Gerar Relatório PDF" color={Colors.primary} onPress={() => navigateToModulo('GerarRelatorio')} />
       {empresa.planilha_url && (
