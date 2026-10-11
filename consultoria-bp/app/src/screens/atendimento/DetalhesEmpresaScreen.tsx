@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Alert,
 } from 'react-native'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
-import { useNavigation, useRoute } from '@react-navigation/native'
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import type { RouteProp } from '@react-navigation/native'
 import * as WebBrowser from 'expo-web-browser'
@@ -27,6 +27,7 @@ import { sincronizarEmpresa } from '../../services/syncEmpresa'
 import { resumoDaSincronizacao } from '../../services/syncPacote'
 import { urlDaPasta } from '../../services/driveClient'
 import { frasePedidoRelatorio } from '../../utils/atendimentoJson'
+import { CONFIG_SISTEMAS } from '../../constants/sistemas'
 
 type Nav = StackNavigationProp<AppStackParamList>
 type Route = RouteProp<AppStackParamList, 'DetalhesEmpresa'>
@@ -38,30 +39,19 @@ interface Modulo {
   nav: keyof AppStackParamList
 }
 
+// Só o que o consultor informa no app. As demais abas da planilha (A2, A3, A14, B3, B5, B6, B7)
+// são preenchidas pela skill a partir das faturas, das fotos e dos textos daqui.
 const MODULOS_A: Modulo[] = [
   { key: 'A1', label: 'Histórico de Consumo', icon: '📊', nav: 'A1_HistoricoConsumo' },
-  { key: 'A2', label: 'Matriz Energética', icon: '⚡', nav: 'A2_MatrizEnergetica' },
-  { key: 'A3', label: 'Usos Finais + Sankey', icon: '🔀', nav: 'A3_PrincipaisUsosFinals' },
-  { key: 'A4', label: 'Análise Tarifária BT', icon: '💰', nav: 'A4_AnaliseTarifariaBT' },
-  { key: 'A5', label: 'Sistema de Iluminação', icon: '💡', nav: 'A5_Iluminacao' },
-  { key: 'A6', label: 'Sistema Motriz', icon: '⚙️', nav: 'A6_SistemaMotriz' },
-  { key: 'A7', label: 'Compressor — Troca', icon: '🔧', nav: 'A7_CompressorTroca' },
-  { key: 'A8', label: 'Compressor — Ar', icon: '💨', nav: 'A8_CompressorAr' },
-  { key: 'A9', label: 'Ar-cond. Dimensionamento', icon: '❄️', nav: 'A9_ArCondDimensionamento' },
-  { key: 'A10', label: 'Ar-cond. Troca', icon: '🔄', nav: 'A10_ArCondTroca' },
-  { key: 'A11', label: 'Refrigeração', icon: '🧊', nav: 'A11_Refrigeracao' },
-  { key: 'A12', label: 'Sistema Térmico', icon: '🌡️', nav: 'A12_SistemaTérmico' },
-  { key: 'A13', label: 'Bombeamento/Exaustão', icon: '🌊', nav: 'A13_Bombeamento' },
-  { key: 'A14', label: 'Antes e Depois', icon: '📸', nav: 'A14_AntesDepois' },
+  { key: 'A4', label: 'Levantamento de Cargas', icon: '📷', nav: 'A4_LevantamentoCargas' },
+  ...CONFIG_SISTEMAS.map((c) => ({ key: c.aba, label: c.titulo, icon: c.icone, nav: c.rota as keyof AppStackParamList })),
 ]
 
 const MODULOS_B: Modulo[] = [
   { key: 'B2', label: 'Dados Gerais', icon: '📝', nav: 'B2_DadosGerais' },
-  { key: 'B3', label: 'Mapeamento', icon: '🗺️', nav: 'B3_Mapeamento' },
-  { key: 'B5', label: 'Oportunidades', icon: '🎯', nav: 'B5_Oportunidades' },
-  { key: 'B6', label: 'Ações Realizadas', icon: '✅', nav: 'B6_AcoesRealizadas' },
-  { key: 'B7', label: 'Termo de Encerramento', icon: '📜', nav: 'B7_TermoEncerramento' },
 ]
+
+const TODOS_MODULOS = [...MODULOS_A, ...MODULOS_B]
 
 export default function DetalhesEmpresaScreen() {
   const navigation = useNavigation<Nav>()
@@ -83,6 +73,11 @@ export default function DetalhesEmpresaScreen() {
     loadData()
   }, [empresaId])
 
+  // ao voltar de um módulo, atualiza as marcas de concluído sem recarregar a tela
+  useFocusEffect(useCallback(() => {
+    getAtendimento(empresaId).then((at) => { if (at) setAtendimento(at) }).catch(() => {})
+  }, [empresaId]))
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -102,7 +97,7 @@ export default function DetalhesEmpresaScreen() {
   }
 
   const statusModulos: Record<string, boolean> = atendimento?.status_modulos ?? {}
-  const totalConcluidos = Object.values(statusModulos).filter(Boolean).length
+  const totalConcluidos = TODOS_MODULOS.filter((m) => statusModulos[m.key]).length
 
   const navParams = { empresaId, atendimentoId: atendimentoId ?? '' }
 
@@ -194,14 +189,14 @@ export default function DetalhesEmpresaScreen() {
         {empresa.municipio && <Text style={styles.detail}>{empresa.municipio} / {empresa.uf}</Text>}
         <View style={styles.progressRow}>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${(totalConcluidos / 19) * 100}%` }]} />
+            <View style={[styles.progressFill, { width: `${(totalConcluidos / TODOS_MODULOS.length) * 100}%` }]} />
           </View>
-          <Text style={styles.progressText}>{totalConcluidos}/19 módulos</Text>
+          <Text style={styles.progressText}>{totalConcluidos}/{TODOS_MODULOS.length} módulos</Text>
         </View>
       </View>
 
       {/* Módulos A */}
-      <SectionHeader title="ESTUDOS TÉCNICOS" />
+      <SectionHeader title="LEVANTAMENTO E SISTEMAS" />
       <View style={styles.grid}>
         {MODULOS_A.map((m) => (
           <ModuloCard

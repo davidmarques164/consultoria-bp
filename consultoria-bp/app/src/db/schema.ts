@@ -98,6 +98,10 @@ async function migrarFaseA(db: SQLite.SQLiteDatabase) {
   await addColumnIfMissing(db, 'atendimentos', 'consumo_medio_informado_kwh_mes', 'REAL')
   await addColumnIfMissing(db, 'faturas', 'senha', 'TEXT')
   await addColumnIfMissing(db, 'faturas', 'nome_arquivo', 'TEXT')
+  await addColumnIfMissing(db, 'faturas', 'insumo', 'TEXT')
+  await addColumnIfMissing(db, 'atendimentos', 'sistemas_nao_aplicaveis', 'TEXT')
+  await addColumnIfMissing(db, 'intervencoes', 'equipamento', 'TEXT')
+  await addColumnIfMissing(db, 'intervencoes', 'proposta', 'TEXT')
 }
 
 async function initSchema(db: SQLite.SQLiteDatabase) {

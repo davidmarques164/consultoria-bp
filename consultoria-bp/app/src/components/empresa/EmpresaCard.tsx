@@ -12,7 +12,7 @@ interface Props {
   modulosConcluidos?: number
 }
 
-export default function EmpresaCard({ empresa, onPress, modulosTotal = 19, modulosConcluidos = 0 }: Props) {
+export default function EmpresaCard({ empresa, onPress, modulosTotal = 12, modulosConcluidos = 0 }: Props) {
   const pct = modulosTotal > 0 ? (modulosConcluidos / modulosTotal) * 100 : 0
 
   return (

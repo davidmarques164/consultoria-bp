@@ -14,10 +14,27 @@ Sem backend, sem API da Claude e sem escrita célula a célula no Google Sheets.
   atendimento.md          os mesmos dados em texto, para leitura
   modelo/                 modelo V9 em branco
   cartao_cnpj.pdf
-  faturas/                2026-08.pdf, fatura_02.pdf ...
+  faturas/                faturas de energia: 2026-08.pdf, fatura_02.pdf ...
+  outros_insumos/         faturas e notas de GLP, gás natural, lenha e biomassa: glp_01.pdf ...
   cargas/                 c01.jpg, c02_1.jpg ...
   intervencoes/           i01_antes.jpg, i01_depois.jpg, i01_medicao_antes.jpg ...
 ```
+
+## O que o consultor preenche no app
+
+O app coleta só o que a skill não tem como saber. O que ficar em branco, a skill preenche pelos
+arquivos (faturas, fotos, textos) ou deixa em branco para preenchimento posterior.
+
+| Tela | O que tem |
+| --- | --- |
+| A1 — Histórico de consumo | Energia elétrica: só o envio das faturas (e a senha do PDF). Outros insumos: tabela mensal e envio de faturas/notas |
+| A4 — Levantamento de cargas | Por carga: fotos, nome, potência, quantidade e tempo de uso. Só a foto já basta |
+| A5 a A13 — Sistemas | Card com as ações possíveis, "não se aplica" e, por equipamento: modificação proposta, intervenção efetuada, fotos de antes e de depois, leituras de antes e de depois e dados técnicos opcionais |
+| B2 — Dados gerais | Consultores, datas do SGT, proposta, unidade operacional e DR; pode ir em branco |
+
+As abas A2, A3, A14, B3, B5, B6 e B7 da planilha não têm tela: são preenchidas pela skill. A B5 e a B6
+saem dos textos de proposta e de intervenção de cada equipamento; as fotos de antes e depois vão para
+as abas B4. As telas A5 a A13 são uma tela só (`SistemaScreen`), configurada em `src/constants/sistemas.ts`.
 
 O nome da pasta é o nome digitado no cadastro da empresa (sem `\ / : * ? " < > |`). O cadastro pede só
 esse nome; o app não aceita duas empresas com o mesmo nome, porque usariam a mesma pasta. CNPJ, razão
@@ -41,6 +58,10 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
 | `src/db/faseA.ts` | Gravação e leitura; data de início no primeiro dado salvo; conclusão e reabertura |
 | `src/utils/atendimentoJson.ts` | Monta o JSON, o resumo em Markdown e a lista de arquivos a enviar (funções puras) |
 | `src/utils/validacoes.ts` | Validações da coleta (funções puras) |
+| `src/utils/entrada.ts` | Converte o que é digitado (número com vírgula, horário livre) |
+| `src/utils/formularios.ts` | Converte os formulários das telas A4 e A5–A13 nos registros gravados |
+| `src/constants/sistemas.ts` | Texto explicativo, ações possíveis e campos de cada aba de sistema |
+| `src/components/atendimento/FotosCampo.tsx` | Campo de fotos (câmera, galeria, miniaturas) |
 | `src/services/exportAtendimento.ts` | Lê o banco e devolve o pacote da empresa |
 | `src/services/driveClient.ts` | Chamadas ao Google Drive com o token do consultor |
 | `src/services/syncPacote.ts` | Leva o pacote para a pasta: cria o que falta, não duplica o que já foi, avisa do que falhou |
@@ -48,14 +69,21 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
 | `src/services/arquivosLocais.ts` | Copia fotos e faturas para o armazenamento permanente do app |
 | `scripts/teste-drive.ts` | Teste da sincronização contra um Drive simulado |
 | `scripts/teste-fase-a.ts` | Teste com empresa fictícia: `npm run teste:fase-a` |
+| `scripts/teste-banco.ts` | Teste do esquema, das migrações e do SQL com o SQLite do Node no lugar do expo-sqlite |
 
 ## Regras do contrato
 
 - Datas em `AAAA-MM-DD`, horários em `HH:MM`, potência sempre em watts.
 - Textos de lista idênticos aos da planilha (`tipo` da carga, `sistema` da intervenção, `regime`).
 - Campo desconhecido fica `null`, nunca texto vazio nem zero.
-- Toda medição diz a unidade e a que período corresponde (dia, semana ou mês).
-- A intervenção diz em quantos aparelhos foi feita e onde eles ficam.
+- Quase nada é obrigatório. Uma carga precisa de foto ou nome; um equipamento, de nome, texto ou foto.
+  Só é recusado o que foi digitado de forma inválida.
+- Carga só com foto: `tipo`, `descricao` e `potencia_w` vão `null` e a skill preenche pela foto.
+- Número ambíguo não é adivinhado: `9.000` ou `7.618` são recusados e o app pede `9000` ou `7,618`.
+- `sistemas` diz, para cada aba A5–A13, se foi marcada "não se aplica" (`false`), se tem equipamento
+  (`true`) ou se não foi avaliada (`null`).
+- Em `intervencoes`, `proposta` é a modificação proposta e `descricao` é a intervenção efetuada.
+- Medição sem período (dia, semana ou mês) gera aviso: sem ele a skill não calcula o consumo anual.
 
 ## Etapas
 
@@ -63,10 +91,10 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
 2. Modelo de dados e `atendimento.json` — feito.
 3. Pasta no Drive com o login do consultor, envio de arquivos e sincronização — feito; falta o teste no aparelho.
 4. Login e menu principal (Prospecção, empresas em atendimento).
-5. CNPJ e dados da empresa.
-6. Faturas.
-7. Levantamento de cargas.
-8. Intervenções.
+5. CNPJ e dados da empresa — o cadastro ficou só com o nome; falta o envio do cartão CNPJ.
+6. Faturas — feito na tela A1; falta o teste no aparelho.
+7. Levantamento de cargas — feito na tela A4; falta o teste no aparelho.
+8. Intervenções — feito nas telas A5 a A13; falta o teste no aparelho.
 9. Conclusão com confirmação dupla.
 10. Teste de ponta a ponta.
 11. Versão web e `.exe`.
