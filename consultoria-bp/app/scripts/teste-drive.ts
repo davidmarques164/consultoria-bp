@@ -68,7 +68,7 @@ function aparelho(sim: ReturnType<typeof driveSimulado>, tamanhos: Record<string
 }
 
 const pacote = (extra: Partial<PacoteDaEmpresa> = {}): PacoteDaEmpresa => ({
-  pasta: "11222333000181 - GRAFICA D'ALVA LTDA",
+  pasta: "GRAFICA D'ALVA LTDA",
   json: { versao: 1, cargas: [] } as any,
   markdown: '# Atendimento EE — GRAFICA D\'ALVA LTDA\n',
   arquivos: [
@@ -94,7 +94,7 @@ async function main() {
   const raiz = porNome(sim, NOME_PASTA_RAIZ)
   assert.equal(raiz.length, 1, 'cria a pasta raiz uma vez')
   assert.deepEqual(raiz[0].parents, ['root'], 'a raiz nasce no Drive de quem está logado')
-  const empresa = porNome(sim, "11222333000181 - GRAFICA D'ALVA LTDA")
+  const empresa = porNome(sim, "GRAFICA D'ALVA LTDA")
   assert.equal(empresa.length, 1, 'nome com apóstrofo não quebra a busca')
   assert.equal(empresa[0].mimeType, MIME_PASTA)
   assert.deepEqual(empresa[0].parents, [raiz[0].id])

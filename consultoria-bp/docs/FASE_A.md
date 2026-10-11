@@ -9,7 +9,7 @@ Sem backend, sem API da Claude e sem escrita célula a célula no Google Sheets.
 ## Pasta da empresa
 
 ```
-<CNPJ só dígitos> - <Razão social>/
+<Nome da empresa>/
   atendimento.json        dados estruturados (fonte)
   atendimento.md          os mesmos dados em texto, para leitura
   modelo/                 modelo V9 em branco
@@ -18,6 +18,10 @@ Sem backend, sem API da Claude e sem escrita célula a célula no Google Sheets.
   cargas/                 c01.jpg, c02_1.jpg ...
   intervencoes/           i01_antes.jpg, i01_depois.jpg, i01_medicao_antes.jpg ...
 ```
+
+O nome da pasta é o nome digitado no cadastro da empresa (sem `\ / : * ? " < > |`). O cadastro pede só
+esse nome; o app não aceita duas empresas com o mesmo nome, porque usariam a mesma pasta. CNPJ, razão
+social e demais dados não fazem parte do cadastro: a skill lê do `cartao_cnpj.pdf` da pasta.
 
 Todas as empresas ficam dentro da pasta raiz `Consultoria B+P`, no Drive do consultor responsável.
 O app cria a raiz e as pastas com o login Google de quem está usando, sem backend:
@@ -70,7 +74,7 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
 ## Teste da etapa 3 no aparelho
 
 1. Entrar no app com a conta Google do responsável.
-2. Cadastrar uma empresa de teste. A pasta `Consultoria B+P/<CNPJ> - <Razão social>` deve aparecer no Drive.
+2. Cadastrar uma empresa de teste. Basta o nome. A pasta `Consultoria B+P/<Nome da empresa>` deve aparecer no Drive.
 3. Abrir a empresa e tocar em **Enviar pasta ao Drive**. A pasta deve receber `atendimento.json` e `atendimento.md`.
 4. Pôr o modelo V9 em `Consultoria B+P/modelo` e enviar de novo: a cópia aparece em `<empresa>/modelo`.
 5. Tocar em **Abrir pasta no Drive** e conferir.
