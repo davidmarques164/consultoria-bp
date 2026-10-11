@@ -189,7 +189,7 @@ export default function DetalhesEmpresaScreen() {
       {/* Info card */}
       <View style={styles.infoCard}>
         <Text style={styles.nome}>{empresa.razao_social}</Text>
-        <Text style={styles.cnpj}>CNPJ: {formatCNPJ(empresa.cnpj)}</Text>
+        {!!empresa.cnpj && <Text style={styles.cnpj}>CNPJ: {formatCNPJ(empresa.cnpj)}</Text>}
         {empresa.concessionaria && <Text style={styles.detail}>Concessionária: {empresa.concessionaria} — {empresa.subgrupo}</Text>}
         {empresa.municipio && <Text style={styles.detail}>{empresa.municipio} / {empresa.uf}</Text>}
         <View style={styles.progressRow}>

@@ -29,11 +29,18 @@ function extensao(caminho: string, padrao: string): string {
   return (m ? m[1] : padrao).toLowerCase()
 }
 
-/** Nome da pasta da empresa no Drive: "<CNPJ só dígitos> - <Razão social>". */
-export function nomePastaEmpresa(cnpj: string | null, razaoSocial: string | null): string {
-  const digitos = (cnpj ?? '').replace(/\D/g, '')
-  const nome = (razaoSocial ?? '').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim()
-  return [digitos, nome].filter(Boolean).join(' - ') || 'Empresa sem nome'
+/**
+ * Nome da pasta da empresa no Drive: o nome digitado no cadastro,
+ * sem os caracteres que o Windows não aceita em nome de pasta.
+ */
+export function nomePastaEmpresa(nome: string | null): string {
+  return (nome ?? '').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'Empresa sem nome'
+}
+
+/** Dois nomes que dariam a mesma pasta (ignora maiúsculas, acentos e espaços a mais). */
+export function mesmaPasta(a: string | null, b: string | null): boolean {
+  const chave = (v: string | null) => nomePastaEmpresa(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  return chave(a) === chave(b)
 }
 
 /** Frase pronta para pedir o relatório à Claude (mostrada na conclusão). */

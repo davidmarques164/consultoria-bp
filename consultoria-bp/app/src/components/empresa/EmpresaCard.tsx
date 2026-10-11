@@ -21,7 +21,7 @@ export default function EmpresaCard({ empresa, onPress, modulosTotal = 19, modul
         <Text style={styles.nome} numberOfLines={1}>{empresa.razao_social}</Text>
         <StatusBadge status={empresa.status} />
       </View>
-      <Text style={styles.info}>CNPJ: {formatCNPJ(empresa.cnpj)}</Text>
+      {!!empresa.cnpj && <Text style={styles.info}>CNPJ: {formatCNPJ(empresa.cnpj)}</Text>}
       {empresa.concessionaria && (
         <Text style={styles.info}>Concessionária: {empresa.concessionaria}</Text>
       )}

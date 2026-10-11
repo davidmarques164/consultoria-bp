@@ -4,7 +4,7 @@
  * Os números de medição repetem um caso real (ar-condicionado usado só no expediente); a empresa é inventada.
  */
 import assert from 'node:assert/strict'
-import { atendimentoParaMarkdown, frasePedidoRelatorio, montarAtendimento, nomePastaEmpresa } from '../src/utils/atendimentoJson'
+import { atendimentoParaMarkdown, frasePedidoRelatorio, mesmaPasta, montarAtendimento, nomePastaEmpresa } from '../src/utils/atendimentoJson'
 import { pendenciasDaConclusao, validarCarga, validarIntervencao, validarSomaDasCargas } from '../src/utils/validacoes'
 import { Empresa } from '../src/types/empresa'
 import { AtendimentoFaseA, Carga, Intervencao } from '../src/types/faseA'
@@ -80,8 +80,12 @@ assert.deepEqual(arquivos, [
   { origem: 'file:///fotos/IMG_0049.JPG', destino: 'cargas/c01.jpg' },
   { origem: 'file:///fotos/medidor_depois.png', destino: 'intervencoes/i01_medicao_depois.png' },
 ])
-assert.equal(nomePastaEmpresa(empresa.cnpj, empresa.razao_social), '11222333000181 - GRAFICA EXEMPLO LTDA')
-assert.match(frasePedidoRelatorio('11222333000181 - GRAFICA EXEMPLO LTDA'), /Preencha o relatório EE da pasta/)
+assert.equal(nomePastaEmpresa(empresa.razao_social), 'GRAFICA EXEMPLO LTDA')
+assert.equal(nomePastaEmpresa('  Gráfica  A/B: "Exemplo"  '), 'Gráfica A B Exemplo')
+assert.equal(nomePastaEmpresa(''), 'Empresa sem nome')
+assert.ok(mesmaPasta('Gráfica Exemplo', ' grafica  exemplo '))
+assert.ok(!mesmaPasta('Gráfica Exemplo', 'Gráfica Exemplo 2'))
+assert.match(frasePedidoRelatorio('GRAFICA EXEMPLO LTDA'), /Preencha o relatório EE da pasta/)
 
 const md = atendimentoParaMarkdown(json)
 assert.match(md, /# Atendimento EE — GRAFICA EXEMPLO LTDA/)

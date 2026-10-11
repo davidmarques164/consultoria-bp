@@ -29,5 +29,5 @@ export async function exportarAtendimento(
     listarFaturasArquivo(empresaId), listarCargas(atendimentoId), listarIntervencoes(atendimentoId), listarAcoesTarifarias(atendimentoId),
   ])
   const { json, arquivos } = montarAtendimento({ empresa, atendimento, consultor, faturas, cargas, intervencoes, tarifario })
-  return { pasta: nomePastaEmpresa(empresa.cnpj, empresa.razao_social), json, markdown: atendimentoParaMarkdown(json), arquivos }
+  return { pasta: nomePastaEmpresa(empresa.razao_social), json, markdown: atendimentoParaMarkdown(json), arquivos }
 }

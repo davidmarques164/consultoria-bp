@@ -36,7 +36,7 @@ export async function garantirPastaDaEmpresa(empresaId: string): Promise<string>
   if (empresa.drive_folder_id) return empresa.drive_folder_id
   const drive = criarDrive(getValidToken)
   const raiz = await drive.garantirPastaRaiz()
-  const pastaId = await drive.garantirPasta(nomePastaEmpresa(empresa.cnpj, empresa.razao_social), raiz)
+  const pastaId = await drive.garantirPasta(nomePastaEmpresa(empresa.razao_social), raiz)
   await updateEmpresa(empresaId, { drive_folder_id: pastaId })
   return pastaId
 }
