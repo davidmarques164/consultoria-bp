@@ -63,9 +63,9 @@ export function validarCarga(c: CargaJson): Problema[] {
   const dias = c.uso?.dias_semana
   if (dias !== null && dias !== undefined && (dias <= 0 || dias > 7)) p.push({ nivel: 'erro', campo: 'uso', mensagem: 'Dias por semana vai de 1 a 7.' })
 
-  if (c.potencia_w === null && c.fotos.length === 0) p.push({ nivel: 'alerta', campo: 'potencia_w', mensagem: 'Sem potência e sem foto: a skill só poderá estimar pela categoria.' })
+  if (c.potencia_w === null && c.fotos.length === 0) p.push({ nivel: 'alerta', campo: 'potencia_w', mensagem: 'Sem potência e sem foto: a potência terá de ser estimada pela categoria.' })
   if (c.em_uso && (c.uso === null || c.uso.intervalos.length === 0 || diasPorMes(c) <= 0)) p.push({ nivel: 'alerta', campo: 'uso', mensagem: 'Tempo de uso em branco: precisará ser informado antes de gerar o relatório.' })
-  if (nome.length > LIMITES.descricaoCarga) p.push({ nivel: 'alerta', campo: 'descricao', mensagem: `O nome tem ${nome.length} caracteres; na planilha cabem ${LIMITES.descricaoCarga}. A skill vai abreviar.` })
+  if (nome.length > LIMITES.descricaoCarga) p.push({ nivel: 'alerta', campo: 'descricao', mensagem: `O nome tem ${nome.length} caracteres; na planilha cabem ${LIMITES.descricaoCarga}. Será abreviado no relatório.` })
   return p
 }
 
@@ -76,8 +76,8 @@ export function validarIntervencao(it: IntervencaoJson, cargas: CargaJson[], con
   if (!temFoto && !it.equipamento && !it.proposta && !it.descricao) p.push({ nivel: 'erro', campo: 'descricao', mensagem: 'Informe ao menos o nome do equipamento, um texto ou uma foto.' })
   if (it.acao !== null && it.acao.length > LIMITES.acao) p.push({ nivel: 'erro', campo: 'acao', mensagem: `O nome da ação cabe em até ${LIMITES.acao} caracteres no relatório (tem ${it.acao.length}).` })
   if (it.quantidade_modificada !== null && it.quantidade_modificada < 1) p.push({ nivel: 'erro', campo: 'quantidade_modificada', mensagem: 'A quantidade de aparelhos deve ser 1 ou mais, ou ficar em branco.' })
-  if (it.quantidade_modificada === null) p.push({ nivel: 'alerta', campo: 'quantidade_modificada', mensagem: 'Em quantos aparelhos a ação foi feita? Em branco, a skill vai perguntar.' })
-  if (!it.local) p.push({ nivel: 'alerta', campo: 'local', mensagem: 'Local dos aparelhos em branco: a skill deixa em branco e avisa.' })
+  if (it.quantidade_modificada === null) p.push({ nivel: 'alerta', campo: 'quantidade_modificada', mensagem: 'Em quantos aparelhos a ação foi feita? Em branco, precisará ser informado depois.' })
+  if (!it.local) p.push({ nivel: 'alerta', campo: 'local', mensagem: 'Local dos aparelhos em branco: ficará em branco no relatório.' })
   if (!it.descricao && !it.proposta) p.push({ nivel: 'alerta', campo: 'descricao', mensagem: 'Sem texto de proposta nem de intervenção: o relatório não terá texto para esta carga.' })
 
   const ligadas = cargas.filter((c) => it.carga_ids.includes(c.id))
@@ -90,7 +90,7 @@ export function validarIntervencao(it: IntervencaoJson, cargas: CargaJson[], con
   const temAntes = m.antes.valor !== null, temDepois = m.depois.valor !== null
   if (temAntes || temDepois) {
     if (!m.unidade) p.push({ nivel: 'alerta', campo: 'medicao.unidade', mensagem: 'Medição sem unidade (ex.: kWh).' })
-    if (!m.periodo) p.push({ nivel: 'alerta', campo: 'medicao.periodo', mensagem: 'Marque a que período corresponde cada valor medido (dia, semana ou mês): sem isso a skill não calcula o consumo anual e vai perguntar.' })
+    if (!m.periodo) p.push({ nivel: 'alerta', campo: 'medicao.periodo', mensagem: 'Marque a que período corresponde cada valor medido (dia, semana ou mês): sem isso não dá para calcular o consumo anual.' })
   }
   if (it.realizada && !(temAntes && temDepois)) p.push({ nivel: 'alerta', campo: 'medicao', mensagem: 'Ação realizada sem medição de antes e de depois: o relatório não terá resultado medido.' })
 
@@ -138,19 +138,18 @@ export function validarSomaDasCargas(cargas: CargaJson[], consumoMedioKwhMes: nu
   if (soma === 0) return []
   const razao = soma / consumoMedioKwhMes
   if (razao < 0.8) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês, ${(razao * 100).toFixed(0)}% do consumo médio faturado (${consumoMedioKwhMes} kWh). Falta carga ou horário de uso.` }]
-  if (razao > 1.2) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês com potência cheia, ${razao.toFixed(1)} vezes o consumo médio faturado (${consumoMedioKwhMes} kWh). A skill ajusta o fator de utilização; revise horas e dias de uso se a diferença for grande.` }]
+  if (razao > 1.2) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês com potência cheia, ${razao.toFixed(1)} vezes o consumo médio faturado (${consumoMedioKwhMes} kWh). O fator de utilização é ajustado no relatório; revise horas e dias de uso se a diferença for grande.` }]
   return []
 }
 
 /** Pendências mostradas na conferência da conclusão (não impedem concluir). */
-export function pendenciasDaConclusao(j: { empresa: { cnpj: string | null; responsavel_legal: string | null; regime: string | null }; energia: { faturas: unknown[] }; cargas: unknown[]; intervencoes: unknown[] }, temCartaoCnpj: boolean): string[] {
+export function pendenciasDaConclusao(j: { empresa: { cartao_cnpj: string | null; responsavel_legal: string | null; regime: string | null }; energia: { faturas: unknown[] }; cargas: unknown[]; intervencoes: unknown[] }): string[] {
   const p: string[] = []
-  if (!j.empresa.cnpj) p.push('CNPJ da empresa em branco.')
-  if (!temCartaoCnpj) p.push('Cartão CNPJ não anexado.')
+  if (!j.empresa.cartao_cnpj) p.push('Cartão CNPJ não enviado.')
   if (!j.empresa.responsavel_legal) p.push('Responsável legal em branco (pode ser preenchido depois na planilha).')
   if (!j.empresa.regime) p.push('Regime de trabalho não informado.')
   if (j.energia.faturas.length === 0) p.push('Nenhuma fatura anexada.')
-  else if (j.energia.faturas.length < 12) p.push(`Só ${j.energia.faturas.length} fatura(s): a skill completa os meses que faltam pelo histórico da fatura mais nova.`)
+  else if (j.energia.faturas.length < 12) p.push(`Só ${j.energia.faturas.length} fatura(s): os meses que faltam são completados pelo histórico da fatura mais nova.`)
   if (j.cargas.length === 0) p.push('Nenhuma carga cadastrada.')
   if (j.intervencoes.length === 0) p.push('Nenhuma intervenção cadastrada.')
   return p

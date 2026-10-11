@@ -53,6 +53,8 @@ export type OrigemPotencia = 'placa' | 'informada' | 'estimada'
 export const LIMITES = { descricaoCarga: 16, localCarga: 16, acao: 22 } as const
 
 export interface EmpresaJson {
+  /** Arquivo do cartão CNPJ na pasta (cartao_cnpj.pdf); é dele que saem CNPJ, razão social, porte e endereço. */
+  cartao_cnpj: string | null
   cnpj: string | null
   razao_social: string | null
   porte: string | null

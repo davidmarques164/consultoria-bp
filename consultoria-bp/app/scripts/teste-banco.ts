@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict'
 import { getDB } from '../src/db/schema'
-import { createEmpresa, getAtendimento, getOrCreateAtendimento, updateAtendimento, upsertHistoricoConsumo } from '../src/db/operations'
+import { createEmpresa, getAtendimento, getEmpresa, getOrCreateAtendimento, updateAtendimento, updateEmpresa, upsertHistoricoConsumo } from '../src/db/operations'
 import {
   excluirCarga, excluirFaturaArquivo, excluirIntervencao, getAtendimentoFaseA, listarCargas, listarFaturasArquivo, listarIntervencoes,
   marcarSistemaNaoAplicavel, salvarCarga, salvarFaturaArquivo, salvarIntervencao,
@@ -31,6 +31,7 @@ async function main() {
     logradouro: null, numero: null, bairro: null, cep: null, municipio: null, uf: null, email: null, telefone: null, situacao_cadastral: null,
     concessionaria: null, subgrupo: null, regime_trabalho: null, horario_trabalho: null, responsavel_empresa: null, status: 'em_atendimento',
     drive_folder_id: null, planilha_id: null, planilha_url: null, consultor_email: 'consultor@exemplo.com',
+    cartao_cnpj_path: 'file:///docs/cartao.pdf', cartao_cnpj_nome: 'cartao da empresa.pdf',
   })
   const atendimentoId = await getOrCreateAtendimento(empresaId, { consultor_1: 'Consultor Exemplo', tipo_consultoria: 'Eficiência Energética', status_modulos: {} })
   assert.equal((await getAtendimentoFaseA(atendimentoId))?.inicio, null, 'início só é gravado quando entra o primeiro dado')
@@ -103,6 +104,7 @@ async function main() {
   const j = pacote.json
   assert.equal(pacote.pasta, 'Gráfica Exemplo')
   assert.equal(j.empresa.cnpj, null)
+  assert.equal(j.empresa.cartao_cnpj, 'cartao_cnpj.pdf')
   assert.deepEqual(j.energia.faturas, [{ arquivo: 'faturas/fatura_01.pdf', mes: null, senha: '12345' }])
   assert.deepEqual(j.energia.outros_insumos_arquivos, [{ insumo: 'GLP', arquivo: 'outros_insumos/glp_01.jpg' }])
   assert.deepEqual(j.energia.outros_insumos, [{ insumo: 'GLP', mes: '2026-08', quantidade: 45, valor: 380 }])
@@ -112,9 +114,16 @@ async function main() {
   assert.deepEqual(j.sistemas.filter((s) => s.aplicavel !== null).map((s) => [s.aba, s.aplicavel]), [['A6', true], ['A7', false], ['A10', true]])
   assert.deepEqual(j.intervencoes.map((i) => [i.id, i.sistema, i.equipamento]), [['i01', 'Ar condicionado - troca', 'AC sala de corte'], ['i02', 'Sistema motriz', null]])
   assert.deepEqual(pacote.arquivos.map((a) => a.destino).sort(), [
-    'cargas/c01.jpg', 'faturas/fatura_01.pdf', 'intervencoes/i01_antes.jpg', 'intervencoes/i01_depois.jpg',
+    'cargas/c01.jpg', 'cartao_cnpj.pdf', 'faturas/fatura_01.pdf', 'intervencoes/i01_antes.jpg', 'intervencoes/i01_depois.jpg',
     'intervencoes/i01_medicao_antes.png', 'intervencoes/i01_medicao_depois.png', 'intervencoes/i02_antes.jpg', 'outros_insumos/glp_01.jpg',
   ])
+
+  // trocar o cartão CNPJ pela tela da empresa (aqui, por uma foto)
+  await updateEmpresa(empresaId, { cartao_cnpj_path: 'file:///docs/novo.jpg', cartao_cnpj_nome: 'IMG_0001.JPG' })
+  assert.equal((await getEmpresa(empresaId))?.cartao_cnpj_path, 'file:///docs/novo.jpg')
+  const trocado = await exportarAtendimento(empresaId, atendimentoId, { nome: null, email: null })
+  assert.equal(trocado.json.empresa.cartao_cnpj, 'cartao_cnpj.jpg')
+  assert.ok(trocado.arquivos.some((a) => a.origem === 'file:///docs/novo.jpg' && a.destino === 'cartao_cnpj.jpg'))
 
   // ── remoção ───────────────────────────────────────────────────────────────
   await excluirCarga(cargas[0].id)

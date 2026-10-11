@@ -20,6 +20,7 @@ const empresa: Empresa = {
   concessionaria: 'ENEL', subgrupo: 'B1', regime_trabalho: 'Segunda a sexta', horario_trabalho: '7h às 12h',
   responsavel_empresa: '', status: 'em_atendimento', drive_folder_id: null, planilha_id: null, planilha_url: null,
   created_at: '2026-09-15T10:00:00.000Z', updated_at: '2026-10-01T10:00:00.000Z', consultor_email: 'consultor@exemplo.com',
+  cartao_cnpj_path: 'file:///docs/123_456.pdf', cartao_cnpj_nome: 'Comprovante de Inscrição.PDF',
 }
 const atendimento: AtendimentoFaseA = {
   id: 'a1', empresa_id: 'e1', consultor_1: null, consultor_2: null, numero_proposta: null,
@@ -69,6 +70,7 @@ const { json, arquivos } = montarAtendimento(dados, new Date('2026-10-11T15:00:0
 // ── contrato ────────────────────────────────────────────────────────────────
 assert.equal(json.versao, 1)
 assert.equal(json.empresa.cnpj, '11.222.333/0001-81')
+assert.equal(json.empresa.cartao_cnpj, 'cartao_cnpj.pdf', 'o cartão vai para a raiz da pasta, com nome fixo')
 assert.equal(json.empresa.responsavel_legal, null, 'campo vazio vira null, nunca texto vazio')
 assert.equal(json.empresa.regime, 'Segunda a sexta')
 assert.deepEqual(json.empresa.endereco, { rua: 'Rua 8', numero: '157', bairro: 'Centro', cidade: 'Pacatuba', uf: 'CE' })
@@ -104,6 +106,7 @@ assert.equal(it.medicao.depois.foto, 'intervencoes/i01_medicao_depois.png')
 assert.equal(it.equipamento, 'AC sala de corte')
 assert.equal(it.proposta, 'Usar o ar só no horário comercial.')
 assert.deepEqual(arquivos, [
+  { origem: 'file:///docs/123_456.pdf', destino: 'cartao_cnpj.pdf' },
   { origem: 'file:///docs/Fatura.pdf', destino: 'faturas/2026-08.pdf' },
   { origem: 'file:///docs/Fatura (1).pdf', destino: 'faturas/fatura_02.pdf' },
   { origem: 'file:///docs/nota_glp.jpg', destino: 'outros_insumos/glp_01.jpg' },
@@ -140,7 +143,7 @@ for (const c of json.cargas) assert.equal(erros(validarCarga(c)), 0, `carga ${c.
 // campo em branco não impede salvar: vira aviso
 assert.equal(erros(validarCarga({ ...json.cargas[1], uso: null })), 0)
 assert.ok(alertas(validarCarga({ ...json.cargas[1], uso: null })).some((m) => /Tempo de uso em branco/.test(m)))
-assert.ok(alertas(validarCarga({ ...json.cargas[1], descricao: 'Impressora multifuncional a laser' })).some((m) => /A skill vai abreviar/.test(m)))
+assert.ok(alertas(validarCarga({ ...json.cargas[1], descricao: 'Impressora multifuncional a laser' })).some((m) => /Será abreviado no relatório/.test(m)))
 assert.ok(alertas(validarCarga(json.cargas[3])).some((m) => /Tempo de uso em branco/.test(m)), 'só a foto: salva, com aviso do tempo de uso')
 // o que continua sendo erro: valor digitado inválido, ou carga sem foto e sem nome
 assert.ok(erros(validarCarga({ ...json.cargas[1], potencia_w: NaN })) > 0, 'potência sem número')
@@ -174,8 +177,16 @@ assert.ok(alertas(validarIntervencao({ ...it, medicao: { ...it.medicao, depois: 
 assert.ok(validarSomaDasCargas(json.cargas, 41)[0].mensagem.includes('2,4 vezes') || validarSomaDasCargas(json.cargas, 41)[0].mensagem.includes('2.4 vezes'))
 assert.deepEqual(validarSomaDasCargas(json.cargas, null), [])
 
-const pend = pendenciasDaConclusao(json, false)
-assert.ok(pend.some((p) => /Cartão CNPJ/.test(p)) && pend.some((p) => /Responsável legal/.test(p)) && pend.some((p) => /Só 2 fatura/.test(p)))
+const pend = pendenciasDaConclusao(json)
+assert.ok(!pend.some((p) => /Cartão CNPJ/.test(p)) && pend.some((p) => /Responsável legal/.test(p)) && pend.some((p) => /Só 2 fatura/.test(p)))
+assert.ok(pendenciasDaConclusao({ ...json, empresa: { ...json.empresa, cartao_cnpj: null } }).some((p) => /Cartão CNPJ não enviado/.test(p)))
+// o que aparece na tela e o resumo da pasta não citam a ferramenta que gera o relatório
+const textos = [
+  ...json.cargas.flatMap((c) => validarCarga({ ...c, descricao: 'Impressora multifuncional a laser', potencia_w: null, fotos: [], uso: null })),
+  ...validarIntervencao({ ...soFotos, medicao: { ...soFotos.medicao, antes: { valor: 5, data: null, foto: null } } }, []),
+  ...validarSomaDasCargas(json.cargas, 41),
+].map((p) => p.mensagem).concat(pend)
+assert.ok(textos.length > 8 && !textos.some((t) => /skill|claude/i.test(t)), 'nenhuma mensagem do app cita a skill')
 
 // ── o que o consultor digita ────────────────────────────────────────────────
 assert.equal(numeroDigitado('1.250,5'), 1250.5)

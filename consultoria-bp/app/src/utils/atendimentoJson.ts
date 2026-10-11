@@ -71,6 +71,8 @@ export function montarAtendimento(d: DadosParaExportar, agora: Date = new Date()
   const a = d.atendimento
   const regime = (REGIMES as readonly string[]).includes(e.regime_trabalho ?? '') ? (e.regime_trabalho as Regime) : null
 
+  const cartao = anexar(e.cartao_cnpj_path, `cartao_cnpj.${extensao(e.cartao_cnpj_nome ?? e.cartao_cnpj_path ?? '', 'pdf')}`)
+
   // faturas de energia: nome pelo mês quando houver; senão pela ordem
   const usados = new Set<string>()
   const deEnergia = d.faturas.filter((f) => (f.insumo ?? 'energia_eletrica') === 'energia_eletrica')
@@ -142,7 +144,7 @@ export function montarAtendimento(d: DadosParaExportar, agora: Date = new Date()
     versao: VERSAO_CONTRATO,
     gerado_em: agora.toISOString(),
     empresa: {
-      cnpj: txt(e.cnpj), razao_social: txt(e.razao_social), porte: txt(e.porte), faixa_faturamento: txt(e.faixa_faturamento),
+      cartao_cnpj: cartao, cnpj: txt(e.cnpj), razao_social: txt(e.razao_social), porte: txt(e.porte), faixa_faturamento: txt(e.faixa_faturamento),
       endereco: { rua: txt(e.logradouro), numero: txt(e.numero), bairro: txt(e.bairro), cidade: txt(e.municipio), uf: txt(e.uf) },
       email: txt(e.email), telefone: txt(e.telefone), responsavel_legal: txt(e.responsavel_empresa),
       regime, horario: txt(e.horario_trabalho),
@@ -191,6 +193,7 @@ export function atendimentoParaMarkdown(j: AtendimentoJson): string {
   L.push(`# Atendimento EE — ${ou(e.razao_social, 'empresa sem nome')}`, '')
   L.push('Resumo dos dados do `atendimento.json` (fonte). Gerado pelo app Consultoria B+P.', '')
   L.push('## Empresa', '')
+  L.push(`- Cartão CNPJ: ${ou(e.cartao_cnpj, 'não enviado')}`)
   L.push(`- CNPJ: ${ou(e.cnpj)}`, `- Razão social: ${ou(e.razao_social)}`, `- Porte: ${ou(e.porte)} | Faixa de faturamento: ${ou(e.faixa_faturamento)}`)
   L.push(`- Endereço: ${ou(e.endereco.rua)}, ${ou(e.endereco.numero, 's/n')} — ${ou(e.endereco.bairro)} — ${ou(e.endereco.cidade)}/${ou(e.endereco.uf)}`)
   L.push(`- E-mail: ${ou(e.email)} | Telefone: ${ou(e.telefone)}`, `- Responsável legal: ${ou(e.responsavel_legal)}`)

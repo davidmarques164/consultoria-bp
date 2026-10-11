@@ -113,7 +113,7 @@ export default function A4_LevantamentoCargasScreen() {
   return (
     <>
       <KeyboardScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-        <AlertBanner type="info" message="Fotografe cada carga (de preferência a placa) e informe nome, potência e tempo de uso. Se enviar só a foto, a skill preenche o resto." />
+        <AlertBanner type="info" message="Fotografe cada carga (de preferência a placa) e informe nome, potência e tempo de uso. Se enviar só a foto, o restante é preenchido depois, a partir dela." />
 
         {cartoes.map((c, i) => {
           const { problemas } = formCargaEmBranco(c) ? { problemas: [] } : cargaDoForm(c, atendimentoId)

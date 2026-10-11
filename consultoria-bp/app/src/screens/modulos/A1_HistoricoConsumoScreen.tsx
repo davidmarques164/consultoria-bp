@@ -176,7 +176,7 @@ export default function A1_HistoricoConsumoScreen() {
         </TouchableOpacity>
 
         {ehEnergia && doInsumo.length === 0 && (
-          <AlertBanner type="info" message="Envie as faturas de energia. A skill lê os PDFs e preenche o histórico, as tarifas e os horários." />
+          <AlertBanner type="info" message="Envie as faturas de energia. O histórico, as tarifas e os horários são preenchidos a partir delas." />
         )}
 
         {doInsumo.map((a) => (

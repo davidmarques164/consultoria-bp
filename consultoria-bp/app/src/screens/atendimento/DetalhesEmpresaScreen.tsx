@@ -11,9 +11,11 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import type { StackNavigationProp } from '@react-navigation/stack'
 import type { RouteProp } from '@react-navigation/native'
 import * as WebBrowser from 'expo-web-browser'
+import * as DocumentPicker from 'expo-document-picker'
 import { AppStackParamList } from '../../navigation/types'
 import { Colors } from '../../constants/colors'
-import { getEmpresa, getAtendimento, getOrCreateAtendimento, getHistoricoConsumo, getUsosFinals } from '../../db/operations'
+import { getEmpresa, getAtendimento, getOrCreateAtendimento, getHistoricoConsumo, getUsosFinals, updateEmpresa } from '../../db/operations'
+import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
 import { sincronizarCompleto } from '../../services/backendApi'
 import NetInfo from '@react-native-community/netinfo'
 import { enqueueSync } from '../../services/syncQueue'
@@ -26,7 +28,6 @@ import { formatCNPJ } from '../../utils/formatters'
 import { sincronizarEmpresa } from '../../services/syncEmpresa'
 import { resumoDaSincronizacao } from '../../services/syncPacote'
 import { urlDaPasta } from '../../services/driveClient'
-import { frasePedidoRelatorio } from '../../utils/atendimentoJson'
 import { CONFIG_SISTEMAS } from '../../constants/sistemas'
 
 type Nav = StackNavigationProp<AppStackParamList>
@@ -163,11 +164,25 @@ export default function DetalhesEmpresaScreen() {
     try {
       const r = await sincronizarEmpresa(empresaId, { nome: consultor?.nome ?? null, email: consultor?.email ?? null })
       setEmpresa((e) => (e ? { ...e, drive_folder_id: r.pastaId } : e))
-      Alert.alert('Pasta enviada', `${resumoDaSincronizacao(r)}\n\nPara gerar o relatório, peça à Claude:\n${frasePedidoRelatorio(r.pasta)}`)
+      Alert.alert('Pasta enviada', resumoDaSincronizacao(r))
     } catch (e: any) {
       Alert.alert('Erro ao enviar', e.message ?? 'Verifique a conexão e tente novamente.')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  // Envia o cartão CNPJ de empresa cadastrada antes de ele ser obrigatório, ou troca o arquivo
+  const handleCartaoCnpj = async () => {
+    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true })
+    if (r.canceled || r.assets.length === 0 || !empresa) return
+    try {
+      const novo = await guardarArquivo(r.assets[0].uri, empresaId, r.assets[0].name)
+      await updateEmpresa(empresaId, { cartao_cnpj_path: novo, cartao_cnpj_nome: r.assets[0].name })
+      if (empresa.cartao_cnpj_path) await apagarArquivo(empresa.cartao_cnpj_path).catch(() => {})
+      setEmpresa({ ...empresa, cartao_cnpj_path: novo, cartao_cnpj_nome: r.assets[0].name })
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message ?? 'Não foi possível guardar o cartão CNPJ.')
     }
   }
 
@@ -223,6 +238,12 @@ export default function DetalhesEmpresaScreen() {
 
       {/* Ações */}
       <SectionHeader title="AÇÕES" />
+      <ActionButton
+        icon="🧾"
+        label={empresa.cartao_cnpj_path ? `Cartão CNPJ: ${empresa.cartao_cnpj_nome ?? 'enviado'} (trocar)` : 'Enviar cartão CNPJ (pendente)'}
+        color={empresa.cartao_cnpj_path ? Colors.gray : Colors.danger}
+        onPress={handleCartaoCnpj}
+      />
       <ActionButton icon="📁" label="Enviar pasta ao Drive" color={Colors.primary} onPress={handleEnviarPasta} />
       {empresa.drive_folder_id && (
         <ActionButton icon="↗" label="Abrir pasta no Drive" color={Colors.gray} onPress={handleAbrirPasta} />
@@ -309,5 +330,5 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   actionIcon: { fontSize: 20 },
-  actionLabel: { fontSize: 15, fontWeight: '700' },
+  actionLabel: { fontSize: 15, fontWeight: '700', flex: 1 },
 })

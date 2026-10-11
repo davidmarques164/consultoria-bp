@@ -36,9 +36,13 @@ As abas A2, A3, A14, B3, B5, B6 e B7 da planilha não têm tela: são preenchida
 saem dos textos de proposta e de intervenção de cada equipamento; as fotos de antes e depois vão para
 as abas B4. As telas A5 a A13 são uma tela só (`SistemaScreen`), configurada em `src/constants/sistemas.ts`.
 
-O nome da pasta é o nome digitado no cadastro da empresa (sem `\ / : * ? " < > |`). O cadastro pede só
-esse nome; o app não aceita duas empresas com o mesmo nome, porque usariam a mesma pasta. CNPJ, razão
-social e demais dados não fazem parte do cadastro: a skill lê do `cartao_cnpj.pdf` da pasta.
+O nome da pasta é o nome digitado no cadastro da empresa (sem `\ / : * ? " < > |`). O cadastro pede
+esse nome e o cartão CNPJ, os dois obrigatórios; o app não aceita duas empresas com o mesmo nome, porque
+usariam a mesma pasta. O cartão é baixado pelo consultor na página da Receita (botão em Ações Externas)
+e vai para a pasta como `cartao_cnpj.pdf`. CNPJ, razão social e demais dados não são digitados: a skill
+lê do cartão.
+
+Os textos mostrados no app não citam a skill nem a Claude: o app só coleta e envia a pasta.
 
 Todas as empresas ficam dentro da pasta raiz `Consultoria B+P`, no Drive do consultor responsável.
 O app cria a raiz e as pastas com o login Google de quem está usando, sem backend:
@@ -91,7 +95,7 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
 2. Modelo de dados e `atendimento.json` — feito.
 3. Pasta no Drive com o login do consultor, envio de arquivos e sincronização — feito; falta o teste no aparelho.
 4. Login e menu principal (Prospecção, empresas em atendimento).
-5. CNPJ e dados da empresa — o cadastro ficou só com o nome; falta o envio do cartão CNPJ.
+5. CNPJ e dados da empresa — o cadastro pede o nome e o cartão CNPJ; falta o teste no aparelho.
 6. Faturas — feito na tela A1; falta o teste no aparelho.
 7. Levantamento de cargas — feito na tela A4; falta o teste no aparelho.
 8. Intervenções — feito nas telas A5 a A13; falta o teste no aparelho.

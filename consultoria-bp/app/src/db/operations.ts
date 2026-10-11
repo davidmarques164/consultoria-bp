@@ -13,8 +13,8 @@ export async function createEmpresa(data: Omit<Empresa, 'created_at' | 'updated_
       cnae_principal,logradouro,numero,bairro,cep,municipio,uf,email,telefone,
       situacao_cadastral,concessionaria,subgrupo,regime_trabalho,horario_trabalho,
       responsavel_empresa,status,drive_folder_id,planilha_id,planilha_url,consultor_email,
-      created_at,updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      cartao_cnpj_path,cartao_cnpj_nome,created_at,updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [data.id, data.cnpj, data.razao_social, data.nome_fantasia ?? null,
      data.porte ?? null, data.faixa_faturamento ?? null, data.cnae_principal ?? null,
      data.logradouro ?? null, data.numero ?? null, data.bairro ?? null,
@@ -24,7 +24,8 @@ export async function createEmpresa(data: Omit<Empresa, 'created_at' | 'updated_
      data.regime_trabalho ?? null, data.horario_trabalho ?? null,
      data.responsavel_empresa ?? null, data.status,
      data.drive_folder_id ?? null, data.planilha_id ?? null,
-     data.planilha_url ?? null, data.consultor_email, now, now]
+     data.planilha_url ?? null, data.consultor_email,
+     data.cartao_cnpj_path ?? null, data.cartao_cnpj_nome ?? null, now, now]
   )
   return { ...data, created_at: now, updated_at: now }
 }
