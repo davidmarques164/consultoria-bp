@@ -1,4 +1,13 @@
-Unexpected argument: node_modules/
-See more help with --help
-.expo/ 
-*.env 
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+*.env
+.env
+.env.*
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks

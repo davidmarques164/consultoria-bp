@@ -1,0 +1,25 @@
+# Usado pelo EAS Build no lugar do .gitignore: define o que sobe para gerar a instalação do app.
+# Mantém fora o que é pesado ou não faz parte do app; o google-services.json precisa subir.
+node_modules/
+.expo/
+dist/
+build/
+__pycache__/
+*.pyc
+venv/
+.venv/
+.env
+.env.*
+*service-account*.json
+*credentials*.json
+client_secrets.json
+token.json
+*.keystore
+*.jks
+*.db
+*.sqlite
+consultoria-bp/backend/
+nvm-setup.exe
+
+# Fica por último para valer sobre as regras acima
+!google-services.json
