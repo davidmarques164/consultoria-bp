@@ -5,8 +5,6 @@ import { AppStackParamList } from './types'
 
 import HomeScreen from '../screens/consultor/HomeScreen'
 import NovaEmpresaScreen from '../screens/empresa/NovaEmpresaScreen'
-import CadastroPlataformaScreen from '../screens/empresa/CadastroPlataformaScreen'
-import FormularioColetaScreen from '../screens/empresa/FormularioColetaScreen'
 import EmpresasEmAtendimentoScreen from '../screens/atendimento/EmpresasEmAtendimentoScreen'
 import EmpresasFinalizadasScreen from '../screens/atendimento/EmpresasFinalizadasScreen'
 import DetalhesEmpresaScreen from '../screens/atendimento/DetalhesEmpresaScreen'
@@ -30,8 +28,6 @@ export default function AppNavigator() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NovaEmpresa" component={NovaEmpresaScreen} options={{ title: 'Nova Empresa' }} />
-      <Stack.Screen name="CadastroPlataforma" component={CadastroPlataformaScreen} options={{ title: 'Plataforma de Produtividade' }} />
-      <Stack.Screen name="FormularioColeta" component={FormularioColetaScreen} options={{ title: 'Formulário de Coleta' }} />
       <Stack.Screen name="EmpresasEmAtendimento" component={EmpresasEmAtendimentoScreen} options={{ title: 'Empresas em Atendimento' }} />
       <Stack.Screen name="EmpresasFinalizadas" component={EmpresasFinalizadasScreen} options={{ title: 'Empresas Finalizadas' }} />
       <Stack.Screen name="DetalhesEmpresa" component={DetalhesEmpresaScreen} options={{ title: 'Detalhes da Empresa' }} />

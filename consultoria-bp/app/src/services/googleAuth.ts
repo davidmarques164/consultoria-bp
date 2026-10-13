@@ -49,15 +49,6 @@ export async function signOut(): Promise<void> {
   await GoogleSignin.signOut()
 }
 
-export async function getCurrentToken(): Promise<string | null> {
-  try {
-    const tokens = await GoogleSignin.getTokens()
-    return tokens.accessToken
-  } catch {
-    return null
-  }
-}
-
 /**
  * Returns a valid access token, refreshing silently if the session expired.
  * Falls back to the SecureStore cached token before giving up.

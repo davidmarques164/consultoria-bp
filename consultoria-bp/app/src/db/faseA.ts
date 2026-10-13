@@ -55,25 +55,6 @@ export async function marcarSistemaNaoAplicavel(atendimentoId: string, aba: stri
   await marcarInicio(atendimentoId)
 }
 
-export async function salvarDadosEnergia(atendimentoId: string, d: {
-  unidade_e_da_empresa?: boolean | null
-  geracao_solar?: boolean | null
-  observacao_consumo?: string | null
-  consumo_medio_informado_kwh_mes?: number | null
-}): Promise<void> {
-  const db = await getDB()
-  const atual = await getAtendimentoFaseA(atendimentoId)
-  if (!atual) return
-  const novo = { ...atual, ...d }
-  await db.runAsync(
-    `UPDATE atendimentos SET unidade_e_da_empresa = ?, geracao_solar = ?, observacao_consumo = ?,
-       consumo_medio_informado_kwh_mes = ?, updated_at = ? WHERE id = ?`,
-    [int(novo.unidade_e_da_empresa), int(novo.geracao_solar), novo.observacao_consumo ?? null,
-     novo.consumo_medio_informado_kwh_mes ?? null, agora(), atendimentoId]
-  )
-  await marcarInicio(atendimentoId)
-}
-
 /** Conclusão confirmada: grava (ou substitui) a data de fim e move a empresa para finalizadas. */
 export async function concluirAtendimento(atendimentoId: string, empresaId: string): Promise<string> {
   const db = await getDB()
@@ -212,31 +193,6 @@ export async function listarAcoesTarifarias(atendimentoId: string): Promise<Acao
     reducao_prevista_rs_ano: r.reducao_prevista_rs_ano ?? null, investimento_rs: r.investimento_rs ?? null,
     sera_realizada: bool(r.sera_realizada), foi_realizada: bool(r.foi_realizada), reducao_real_rs_ano: r.reducao_real_rs_ano ?? null,
   }))
-}
-
-/** Cria ou atualiza uma ação tarifária (pelo id). Devolve o id. */
-export async function salvarAcaoTarifaria(a: Omit<AcaoTarifaria, 'id'> & { id?: string }): Promise<string> {
-  const db = await getDB()
-  const t = agora()
-  const id = a.id ?? novoId()
-  await db.runAsync(
-    `INSERT INTO acoes_tarifarias (id,atendimento_id,tipo,proposta,reducao_prevista_rs_ano,investimento_rs,sera_realizada,
-       foi_realizada,reducao_real_rs_ano,created_at,updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)
-     ON CONFLICT(id) DO UPDATE SET tipo=excluded.tipo, proposta=excluded.proposta,
-       reducao_prevista_rs_ano=excluded.reducao_prevista_rs_ano, investimento_rs=excluded.investimento_rs,
-       sera_realizada=excluded.sera_realizada, foi_realizada=excluded.foi_realizada,
-       reducao_real_rs_ano=excluded.reducao_real_rs_ano, updated_at=excluded.updated_at`,
-    [id, a.atendimento_id, a.tipo, a.proposta ?? null, a.reducao_prevista_rs_ano ?? null, a.investimento_rs ?? null,
-     int(a.sera_realizada), int(a.foi_realizada), a.reducao_real_rs_ano ?? null, t, t]
-  )
-  await marcarInicio(a.atendimento_id)
-  return id
-}
-
-export async function excluirAcaoTarifaria(id: string): Promise<void> {
-  const db = await getDB()
-  await db.runAsync('DELETE FROM acoes_tarifarias WHERE id = ?', [id])
 }
 
 // ── FATURAS (arquivo + senha; a leitura é da skill) ─────────────────────────

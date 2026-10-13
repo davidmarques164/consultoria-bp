@@ -4,6 +4,7 @@ export default {
     slug: 'consultoria-bp',
     version: '1.0.0',
     orientation: 'portrait',
+    userInterfaceStyle: 'light',
     icon: './assets/images/icon.png',
     splash: {
       image: './assets/images/login_bg.png',
@@ -16,23 +17,40 @@ export default {
     },
     android: {
       package: 'com.consultoriabp.app',
+      permissions: ['android.permission.CAMERA'],
+      blockedPermissions: ['android.permission.RECORD_AUDIO'],
       googleServicesFile: './google-services.json',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#FFFFFF',
       },
     },
+    web: { favicon: './assets/images/favicon.png' },
     plugins: [
-      'expo-asset',
       '@react-native-google-signin/google-signin',
-      ['expo-document-picker', { iCloudContainerEnvironment: 'Production' }],
-      'expo-camera',
-      'expo-file-system',
+      [
+        'expo-image-picker',
+        {
+          cameraPermission: 'Usado para fotografar as cargas, as intervenções e as leituras dos medidores.',
+          photosPermission: 'Usado para escolher fotos das cargas e das intervenções.',
+          microphonePermission: false, // o app não grava vídeo
+        },
+      ],
       'expo-secure-store',
+      [
+        'expo-build-properties',
+        {
+          android: {
+            // celulares Android atuais são arm64: o APK deixa de levar bibliotecas de outras arquiteturas
+            buildArchs: ['arm64-v8a'],
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+          },
+        },
+      ],
     ],
     extra: {
       eas: { projectId: 'a7317d8e-dd84-4eda-93c5-7ca2f8f79eb6' },
-      backendUrl: process.env.BACKEND_URL ?? 'http://192.168.3.103:8000',
       googleWebClientId: '847964133995-d8rdngrmbj2u05ilkrqhi8asgob9ujt4.apps.googleusercontent.com',
     },
   },
