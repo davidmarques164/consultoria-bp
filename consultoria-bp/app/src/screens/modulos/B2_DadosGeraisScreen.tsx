@@ -12,6 +12,8 @@ import LoadingOverlay from '../../components/common/LoadingOverlay'
 import { getAtendimento, updateAtendimento } from '../../db/operations'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useAuthStore } from '../../store/authStore'
+import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
+import { marcarInicio } from '../../db/faseA'
 
 type Route = RouteProp<AppStackParamList, 'B2_DadosGerais'>
 
@@ -66,7 +68,9 @@ export default function B2_DadosGeraisScreen() {
         ...form,
         status_modulos: { B2: true },
       })
+      await marcarInicio(atendimentoId)
       marcarModuloConcluido('B2')
+      sincronizarEmSegundoPlano(empresaId)
       Alert.alert('Salvo!', 'Dados gerais da consultoria salvos.')
     } catch (e: any) {
       Alert.alert('Erro', e.message)

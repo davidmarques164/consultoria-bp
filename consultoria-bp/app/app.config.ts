@@ -4,7 +4,7 @@ export default {
     slug: 'consultoria-bp',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/logo.png',
+    icon: './assets/images/icon.png',
     splash: {
       image: './assets/images/login_bg.png',
       resizeMode: 'cover',
@@ -18,8 +18,8 @@ export default {
       package: 'com.consultoriabp.app',
       googleServicesFile: './google-services.json',
       adaptiveIcon: {
-        foregroundImage: './assets/images/logo.png',
-        backgroundColor: '#0072BC',
+        foregroundImage: './assets/images/adaptive-icon.png',
+        backgroundColor: '#FFFFFF',
       },
     },
     plugins: [

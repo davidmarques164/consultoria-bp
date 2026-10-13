@@ -86,7 +86,7 @@ export async function sincronizarPacote(drive: Drive, pacote: PacoteDaEmpresa, a
 export function resumoDaSincronizacao(r: ResultadoDaSincronizacao): string {
   const linhas = [`Pasta "${r.pasta}" atualizada no Drive.`, `${r.enviados.length} arquivo(s) enviado(s); ${r.jaEstavam.length} já estavam lá.`]
   if (r.modelo === 'nao_encontrado') linhas.push('Modelo V9 não encontrado: coloque o arquivo .xlsx em "Consultoria B+P/modelo" no Drive.')
-  if (r.grandes.length > 0) linhas.push(`Grandes demais para a Claude ler (acima de 3,5 MB): ${r.grandes.join(', ')}.`)
+  if (r.grandes.length > 0) linhas.push(`Arquivos grandes (acima de 3,5 MB), que podem não ser lidos na geração do relatório: ${r.grandes.join(', ')}.`)
   if (r.falhas.length > 0) linhas.push(`Não enviados: ${r.falhas.map((f) => `${f.destino} (${f.erro})`).join('; ')}.`)
   return linhas.join('\n')
 }

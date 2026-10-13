@@ -2,6 +2,10 @@
  * Validações da fase A, feitas na coleta para o relatório fechar na primeira execução da skill.
  * Cada uma vem de um caso real dos testes (Elohim e Corporate). Funções puras.
  * nivel 'erro' impede salvar; 'alerta' só avisa.
+ *
+ * Quase nada é obrigatório: o que o consultor não informar fica em branco e a skill completa
+ * (pela foto, pela placa, pelos textos). Só é erro o que foi digitado de forma inválida, ou um
+ * registro sem nada que permita à skill trabalhar (nem foto, nem nome, nem texto).
  */
 import { CargaJson, IntervencaoJson, LIMITES, SISTEMAS, TIPOS_CARGA } from '../types/atendimentoJson'
 
@@ -41,37 +45,40 @@ export function diasPorMes(c: Pick<CargaJson, 'uso'>): number {
 /** Consumo mensal da carga com potência cheia (fator 1): kW x quantidade x horas x dias. */
 export function kwhMesNominal(c: CargaJson): number {
   if (!c.em_uso) return 0
-  return (c.potencia_w / 1000) * c.quantidade * horasPorDia(c) * diasPorMes(c)
+  return ((c.potencia_w ?? 0) / 1000) * c.quantidade * horasPorDia(c) * diasPorMes(c)
 }
 
 export function validarCarga(c: CargaJson): Problema[] {
   const p: Problema[] = []
-  if (!(TIPOS_CARGA as readonly string[]).includes(c.tipo)) p.push({ nivel: 'erro', campo: 'tipo', mensagem: 'Escolha o tipo da carga na lista.' })
-  if (!c.descricao.trim()) p.push({ nivel: 'erro', campo: 'descricao', mensagem: 'Informe a descrição da carga.' })
-  if (c.descricao.length > LIMITES.descricaoCarga) p.push({ nivel: 'erro', campo: 'descricao', mensagem: `A descrição cabe em até ${LIMITES.descricaoCarga} caracteres na planilha (tem ${c.descricao.length}).` })
-  if ((c.local ?? '').length > LIMITES.localCarga) p.push({ nivel: 'erro', campo: 'local', mensagem: `O local cabe em até ${LIMITES.localCarga} caracteres na planilha.` })
-  if (!Number.isFinite(c.potencia_w) || c.potencia_w <= 0) p.push({ nivel: 'erro', campo: 'potencia_w', mensagem: 'Informe a potência em watts (só o número).' })
+  const nome = (c.descricao ?? '').trim()
+  if (c.fotos.length === 0 && !nome) p.push({ nivel: 'erro', campo: 'descricao', mensagem: 'Envie ao menos uma foto da carga ou informe o nome.' })
+  if (c.tipo !== null && !(TIPOS_CARGA as readonly string[]).includes(c.tipo)) p.push({ nivel: 'erro', campo: 'tipo', mensagem: 'Escolha o tipo da carga na lista.' })
+  if (c.potencia_w !== null && (!Number.isFinite(c.potencia_w) || c.potencia_w <= 0)) p.push({ nivel: 'erro', campo: 'potencia_w', mensagem: 'A potência deve ser um número em watts maior que zero, ou ficar em branco.' })
   if (!Number.isInteger(c.quantidade) || c.quantidade < 1) p.push({ nivel: 'erro', campo: 'quantidade', mensagem: 'A quantidade deve ser 1 ou mais.' })
-  if (c.em_uso) {
-    const intervalos = c.uso?.intervalos ?? []
-    if (intervalos.length === 0) p.push({ nivel: 'erro', campo: 'uso', mensagem: 'Informe o horário de uso, ou marque a carga como "sem uso".' })
-    for (const [a, b] of intervalos) {
-      const ma = minutos(a), mb = minutos(b)
-      if (ma === null || mb === null) p.push({ nivel: 'erro', campo: 'uso', mensagem: `Horário inválido: ${a}–${b}. Use HH:MM.` })
-      else if (mb <= ma) p.push({ nivel: 'erro', campo: 'uso', mensagem: `O término (${b}) deve ser depois do início (${a}). Uso que passa da meia-noite vira dois intervalos.` })
-    }
-    if (diasPorMes(c) <= 0) p.push({ nivel: 'erro', campo: 'uso', mensagem: 'Informe em quantos dias por semana (ou por mês) a carga é usada.' })
+  for (const [a, b] of c.uso?.intervalos ?? []) {
+    const ma = minutos(a), mb = minutos(b)
+    if (ma === null || mb === null) p.push({ nivel: 'erro', campo: 'uso', mensagem: `Horário inválido: ${a}–${b}. Use HH:MM.` })
+    else if (mb <= ma) p.push({ nivel: 'erro', campo: 'uso', mensagem: `O término (${b}) deve ser depois do início (${a}). Uso que passa da meia-noite vira dois intervalos.` })
   }
+  const dias = c.uso?.dias_semana
+  if (dias !== null && dias !== undefined && (dias <= 0 || dias > 7)) p.push({ nivel: 'erro', campo: 'uso', mensagem: 'Dias por semana vai de 1 a 7.' })
+
+  if (c.potencia_w === null && c.fotos.length === 0) p.push({ nivel: 'alerta', campo: 'potencia_w', mensagem: 'Sem potência e sem foto: a potência terá de ser estimada pela categoria.' })
+  if (c.em_uso && (c.uso === null || c.uso.intervalos.length === 0 || diasPorMes(c) <= 0)) p.push({ nivel: 'alerta', campo: 'uso', mensagem: 'Tempo de uso em branco: precisará ser informado antes de gerar o relatório.' })
+  if (nome.length > LIMITES.descricaoCarga) p.push({ nivel: 'alerta', campo: 'descricao', mensagem: `O nome tem ${nome.length} caracteres; na planilha cabem ${LIMITES.descricaoCarga}. Será abreviado no relatório.` })
   return p
 }
 
 export function validarIntervencao(it: IntervencaoJson, cargas: CargaJson[], consumoMedioKwhMes?: number | null): Problema[] {
   const p: Problema[] = []
   if (!SISTEMAS.some((s) => s.nome === it.sistema)) p.push({ nivel: 'erro', campo: 'sistema', mensagem: 'Escolha o sistema na lista.' })
-  if (!it.acao.trim()) p.push({ nivel: 'erro', campo: 'acao', mensagem: 'Dê um nome curto à ação.' })
-  if (it.acao.length > LIMITES.acao) p.push({ nivel: 'erro', campo: 'acao', mensagem: `O nome da ação cabe em até ${LIMITES.acao} caracteres no relatório (tem ${it.acao.length}).` })
-  if (!it.quantidade_modificada || it.quantidade_modificada < 1) p.push({ nivel: 'erro', campo: 'quantidade_modificada', mensagem: 'Informe em quantos aparelhos a ação foi feita.' })
-  if (!it.local) p.push({ nivel: 'erro', campo: 'local', mensagem: 'Informe onde ficam os aparelhos modificados.' })
+  const temFoto = it.fotos_antes.length + it.fotos_depois.length > 0 || !!it.medicao.antes.foto || !!it.medicao.depois.foto
+  if (!temFoto && !it.equipamento && !it.proposta && !it.descricao) p.push({ nivel: 'erro', campo: 'descricao', mensagem: 'Informe ao menos o nome do equipamento, um texto ou uma foto.' })
+  if (it.acao !== null && it.acao.length > LIMITES.acao) p.push({ nivel: 'erro', campo: 'acao', mensagem: `O nome da ação cabe em até ${LIMITES.acao} caracteres no relatório (tem ${it.acao.length}).` })
+  if (it.quantidade_modificada !== null && it.quantidade_modificada < 1) p.push({ nivel: 'erro', campo: 'quantidade_modificada', mensagem: 'A quantidade de aparelhos deve ser 1 ou mais, ou ficar em branco.' })
+  if (it.quantidade_modificada === null) p.push({ nivel: 'alerta', campo: 'quantidade_modificada', mensagem: 'Em quantos aparelhos a ação foi feita? Em branco, precisará ser informado depois.' })
+  if (!it.local) p.push({ nivel: 'alerta', campo: 'local', mensagem: 'Local dos aparelhos em branco: ficará em branco no relatório.' })
+  if (!it.descricao && !it.proposta) p.push({ nivel: 'alerta', campo: 'descricao', mensagem: 'Sem texto de proposta nem de intervenção: o relatório não terá texto para esta carga.' })
 
   const ligadas = cargas.filter((c) => it.carga_ids.includes(c.id))
   const totalAparelhos = ligadas.reduce((s, c) => s + c.quantidade, 0)
@@ -82,8 +89,8 @@ export function validarIntervencao(it: IntervencaoJson, cargas: CargaJson[], con
   const m = it.medicao
   const temAntes = m.antes.valor !== null, temDepois = m.depois.valor !== null
   if (temAntes || temDepois) {
-    if (!m.unidade) p.push({ nivel: 'erro', campo: 'medicao.unidade', mensagem: 'Informe a unidade da medição (ex.: kWh).' })
-    if (!m.periodo) p.push({ nivel: 'erro', campo: 'medicao.periodo', mensagem: 'Diga a que período corresponde cada valor medido: um dia, uma semana ou um mês.' })
+    if (!m.unidade) p.push({ nivel: 'alerta', campo: 'medicao.unidade', mensagem: 'Medição sem unidade (ex.: kWh).' })
+    if (!m.periodo) p.push({ nivel: 'alerta', campo: 'medicao.periodo', mensagem: 'Marque a que período corresponde cada valor medido (dia, semana ou mês): sem isso não dá para calcular o consumo anual.' })
   }
   if (it.realizada && !(temAntes && temDepois)) p.push({ nivel: 'alerta', campo: 'medicao', mensagem: 'Ação realizada sem medição de antes e de depois: o relatório não terá resultado medido.' })
 
@@ -96,13 +103,13 @@ export function validarIntervencao(it: IntervencaoJson, cargas: CargaJson[], con
   // medição x potência dos aparelhos (só para kWh, com período e cargas vinculadas)
   const ehKwh = (m.unidade ?? '').trim().toLowerCase() === 'kwh'
   if (ehKwh && m.periodo && ligadas.length > 0 && it.quantidade_modificada) {
-    const kwUnitario = ligadas.reduce((s, c) => s + (c.potencia_w / 1000) * c.quantidade, 0) / Math.max(totalAparelhos, 1)
+    const kwUnitario = ligadas.reduce((s, c) => s + ((c.potencia_w ?? 0) / 1000) * c.quantidade, 0) / Math.max(totalAparelhos, 1)
     const kw = kwUnitario * it.quantidade_modificada
     const conferir = (rotulo: string, valor: number | null, horasDia: number | null) => {
       if (valor === null) return
       const horas = horasDia !== null && horasDia > 0 ? horasDia * DIAS_PERIODO[m.periodo as keyof typeof DIAS_PERIODO] : HORAS_PERIODO[m.periodo as keyof typeof HORAS_PERIODO]
       const maximo = kw * horas
-      if (valor > maximo * 1.15) {
+      if (maximo > 0 && valor > maximo * 1.15) {
         p.push({ nivel: 'alerta', campo: 'medicao', mensagem: `Medição ${rotulo} de ${valor} kWh por ${m.periodo} é maior que o possível para ${kw.toLocaleString('pt-BR')} kW em ${horas} h (${maximo.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kWh). Confira o valor, a vírgula e a potência.` })
       }
     }
@@ -131,19 +138,18 @@ export function validarSomaDasCargas(cargas: CargaJson[], consumoMedioKwhMes: nu
   if (soma === 0) return []
   const razao = soma / consumoMedioKwhMes
   if (razao < 0.8) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês, ${(razao * 100).toFixed(0)}% do consumo médio faturado (${consumoMedioKwhMes} kWh). Falta carga ou horário de uso.` }]
-  if (razao > 1.2) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês com potência cheia, ${razao.toFixed(1)} vezes o consumo médio faturado (${consumoMedioKwhMes} kWh). A skill ajusta o fator de utilização; revise horas e dias de uso se a diferença for grande.` }]
+  if (razao > 1.2) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês com potência cheia, ${razao.toFixed(1)} vezes o consumo médio faturado (${consumoMedioKwhMes} kWh). O fator de utilização é ajustado no relatório; revise horas e dias de uso se a diferença for grande.` }]
   return []
 }
 
 /** Pendências mostradas na conferência da conclusão (não impedem concluir). */
-export function pendenciasDaConclusao(j: { empresa: { cnpj: string | null; responsavel_legal: string | null; regime: string | null }; energia: { faturas: unknown[] }; cargas: unknown[]; intervencoes: unknown[] }, temCartaoCnpj: boolean): string[] {
+export function pendenciasDaConclusao(j: { empresa: { cartao_cnpj: string | null; responsavel_legal: string | null; regime: string | null }; energia: { faturas: unknown[] }; cargas: unknown[]; intervencoes: unknown[] }): string[] {
   const p: string[] = []
-  if (!j.empresa.cnpj) p.push('CNPJ da empresa em branco.')
-  if (!temCartaoCnpj) p.push('Cartão CNPJ não anexado.')
+  if (!j.empresa.cartao_cnpj) p.push('Cartão CNPJ não enviado.')
   if (!j.empresa.responsavel_legal) p.push('Responsável legal em branco (pode ser preenchido depois na planilha).')
   if (!j.empresa.regime) p.push('Regime de trabalho não informado.')
   if (j.energia.faturas.length === 0) p.push('Nenhuma fatura anexada.')
-  else if (j.energia.faturas.length < 12) p.push(`Só ${j.energia.faturas.length} fatura(s): a skill completa os meses que faltam pelo histórico da fatura mais nova.`)
+  else if (j.energia.faturas.length < 12) p.push(`Só ${j.energia.faturas.length} fatura(s): os meses que faltam são completados pelo histórico da fatura mais nova.`)
   if (j.cargas.length === 0) p.push('Nenhuma carga cadastrada.')
   if (j.intervencoes.length === 0) p.push('Nenhuma intervenção cadastrada.')
   return p

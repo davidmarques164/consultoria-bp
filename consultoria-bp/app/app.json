@@ -4,7 +4,7 @@
     "slug": "consultoria-bp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/images/login_bg.png",
@@ -22,8 +22,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
-        "backgroundColor": "#0072BC"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.consultoriabp.app",
       "permissions": [
@@ -33,10 +33,12 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "extra": {
-      "eas": { "projectId": "a7317d8e-dd84-4eda-93c5-7ca2f8f79eb6" },
+      "eas": {
+        "projectId": "a7317d8e-dd84-4eda-93c5-7ca2f8f79eb6"
+      },
       "backendUrl": "http://192.168.3.103:8000",
       "googleWebClientId": "847964133995-d8rdngrmbj2u05ilkrqhi8asgob9ujt4.apps.googleusercontent.com"
     }

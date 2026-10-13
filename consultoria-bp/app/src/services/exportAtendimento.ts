@@ -3,7 +3,7 @@
  * e a lista de arquivos (fotos, faturas) que precisam subir para a pasta do Drive.
  * O envio para o Drive é a etapa seguinte; aqui nada sai do aparelho.
  */
-import { getEmpresa } from '../db/operations'
+import { getEmpresa, getHistoricoConsumo } from '../db/operations'
 import {
   getAtendimentoFaseA, listarAcoesTarifarias, listarCargas, listarFaturasArquivo, listarIntervencoes,
 } from '../db/faseA'
@@ -25,9 +25,10 @@ export async function exportarAtendimento(
   const empresa = await getEmpresa(empresaId)
   const atendimento = await getAtendimentoFaseA(atendimentoId)
   if (!empresa || !atendimento) throw new Error('Empresa ou atendimento não encontrado no aparelho.')
-  const [faturas, cargas, intervencoes, tarifario] = await Promise.all([
+  const [faturas, cargas, intervencoes, tarifario, outrosInsumos] = await Promise.all([
     listarFaturasArquivo(empresaId), listarCargas(atendimentoId), listarIntervencoes(atendimentoId), listarAcoesTarifarias(atendimentoId),
+    getHistoricoConsumo(atendimentoId),
   ])
-  const { json, arquivos } = montarAtendimento({ empresa, atendimento, consultor, faturas, cargas, intervencoes, tarifario })
+  const { json, arquivos } = montarAtendimento({ empresa, atendimento, consultor, faturas, cargas, intervencoes, tarifario, outrosInsumos })
   return { pasta: nomePastaEmpresa(empresa.razao_social), json, markdown: atendimentoParaMarkdown(json), arquivos }
 }

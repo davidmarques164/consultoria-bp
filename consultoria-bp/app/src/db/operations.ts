@@ -1,7 +1,7 @@
 import { getDB } from './schema'
 import { Empresa } from '../types/empresa'
 import { DadosAtendimento, HistoricoMes, UsoFinal } from '../types/atendimento'
-import { v4 as uuidv4 } from 'uuid'
+import { novoId } from '../utils/id'
 
 // ── EMPRESAS ────────────────────────────────────────────────────────────────
 
@@ -13,8 +13,8 @@ export async function createEmpresa(data: Omit<Empresa, 'created_at' | 'updated_
       cnae_principal,logradouro,numero,bairro,cep,municipio,uf,email,telefone,
       situacao_cadastral,concessionaria,subgrupo,regime_trabalho,horario_trabalho,
       responsavel_empresa,status,drive_folder_id,planilha_id,planilha_url,consultor_email,
-      created_at,updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      cartao_cnpj_path,cartao_cnpj_nome,created_at,updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [data.id, data.cnpj, data.razao_social, data.nome_fantasia ?? null,
      data.porte ?? null, data.faixa_faturamento ?? null, data.cnae_principal ?? null,
      data.logradouro ?? null, data.numero ?? null, data.bairro ?? null,
@@ -24,7 +24,8 @@ export async function createEmpresa(data: Omit<Empresa, 'created_at' | 'updated_
      data.regime_trabalho ?? null, data.horario_trabalho ?? null,
      data.responsavel_empresa ?? null, data.status,
      data.drive_folder_id ?? null, data.planilha_id ?? null,
-     data.planilha_url ?? null, data.consultor_email, now, now]
+     data.planilha_url ?? null, data.consultor_email,
+     data.cartao_cnpj_path ?? null, data.cartao_cnpj_nome ?? null, now, now]
   )
   return { ...data, created_at: now, updated_at: now }
 }
@@ -54,7 +55,7 @@ export async function getEmpresa(id: string): Promise<Empresa | null> {
 
 export async function createAtendimento(data: Partial<DadosAtendimento> & { empresa_id: string }): Promise<string> {
   const db = await getDB()
-  const id = uuidv4()
+  const id = novoId()
   const now = new Date().toISOString()
   await db.runAsync(
     `INSERT INTO atendimentos (id,empresa_id,tipo_consultoria,consultor_1,consultor_2,
@@ -187,7 +188,7 @@ export async function upsertHistoricoConsumo(
     for (const mes of meses) {
       await db.runAsync(
         'INSERT INTO historico_consumo (id,atendimento_id,insumo,mes,consumo,valor) VALUES (?,?,?,?,?,?)',
-        [uuidv4(), atendimento_id, insumo, mes.mes, mes.consumo ?? null, mes.valor ?? null]
+        [novoId(), atendimento_id, insumo, mes.mes, mes.consumo ?? null, mes.valor ?? null]
       )
     }
   })
@@ -217,7 +218,7 @@ export async function upsertUsosFinals(atendimento_id: string, usos: UsoFinal[])
       const u = usos[i]
       await db.runAsync(
         'INSERT INTO usos_finais (id,atendimento_id,geracao,consumo_local,energia_mensal,unidade,pci,ordem) VALUES (?,?,?,?,?,?,?,?)',
-        [uuidv4(), atendimento_id, u.geracao, u.consumo, u.energia_mensal, u.unidade, u.pci, i]
+        [novoId(), atendimento_id, u.geracao, u.consumo, u.energia_mensal, u.unidade, u.pci, i]
       )
     }
   })
@@ -248,7 +249,7 @@ export async function createFatura(data: {
   confianca?: string
 }): Promise<string> {
   const db = await getDB()
-  const id = uuidv4()
+  const id = novoId()
   await db.runAsync(
     'INSERT INTO faturas (id,empresa_id,arquivo_path,mes_referencia,dados_extraidos,confianca) VALUES (?,?,?,?,?,?)',
     [id, data.empresa_id, data.arquivo_path ?? null, data.mes_referencia ?? null,

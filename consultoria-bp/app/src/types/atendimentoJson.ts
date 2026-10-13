@@ -3,6 +3,9 @@
  * O app grava um `atendimento.json` por empresa na pasta do Drive; a skill só lê.
  * Regras de formato: datas AAAA-MM-DD, horários HH:MM, potência sempre em watts,
  * textos de lista idênticos aos da planilha V9. Campo desconhecido = null (nunca '' ou 0).
+ *
+ * Quase tudo é opcional: o consultor pode mandar só a foto e o texto, e a skill completa o resto
+ * (placa, potência, tipo da carga, textos do relatório). O que vier preenchido prevalece.
  */
 
 export const VERSAO_CONTRATO = 1
@@ -35,6 +38,14 @@ export type Regime = (typeof REGIMES)[number]
 export const TIPOS_TARIFARIO = ['fator_potencia', 'demanda', 'reenquadramento'] as const
 export type TipoTarifario = (typeof TIPOS_TARIFARIO)[number]
 
+/** Outros insumos da aba A1, além da energia elétrica. */
+export const OUTROS_INSUMOS = [
+  { chave: 'glp', nome: 'GLP', unidade: 'kg' },
+  { chave: 'gas_natural', nome: 'Gás Natural', unidade: 'm³' },
+  { chave: 'lenha', nome: 'Lenha', unidade: 'm³' },
+  { chave: 'biomassa', nome: 'Biomassa', unidade: 'kg' },
+] as const
+
 export type PeriodoMedicao = 'dia' | 'semana' | 'mes'
 export type OrigemPotencia = 'placa' | 'informada' | 'estimada'
 
@@ -42,6 +53,8 @@ export type OrigemPotencia = 'placa' | 'informada' | 'estimada'
 export const LIMITES = { descricaoCarga: 16, localCarga: 16, acao: 22 } as const
 
 export interface EmpresaJson {
+  /** Arquivo do cartão CNPJ na pasta (cartao_cnpj.pdf); é dele que saem CNPJ, razão social, porte e endereço. */
+  cartao_cnpj: string | null
   cnpj: string | null
   razao_social: string | null
   porte: string | null
@@ -63,6 +76,10 @@ export interface AtendimentoInfoJson {
   /** Data da conclusão confirmada; muda se a empresa for reaberta e concluída de novo. */
   fim: string | null
   situacao: 'em_andamento' | 'concluida'
+  /** Dados da aba B2 digitados no app; em branco = o consultor preenche depois na planilha. */
+  sgt: { data_aceitacao: string | null; data_execucao: string | null; data_encerramento: string | null }
+  unidade_operacional: string | null
+  dr: { cidade: string | null; uf: string | null }
 }
 
 export interface FaturaJson {
@@ -81,7 +98,10 @@ export interface EnergiaJson {
   observacao_consumo: string | null
   /** Opcional: média mensal em kWh lida pelo consultor nas faturas; só alimenta as validações do app. */
   consumo_medio_informado_kwh_mes: number | null
+  /** Consumo mensal dos outros insumos digitado na aba A1 (só os meses com algum valor). */
   outros_insumos: { insumo: string; mes: string; quantidade: number | null; valor: number | null }[]
+  /** Faturas e notas dos outros insumos, para a skill ler. */
+  outros_insumos_arquivos: { insumo: string; arquivo: string }[]
 }
 
 export interface UsoCargaJson {
@@ -95,10 +115,13 @@ export interface UsoCargaJson {
 
 export interface CargaJson {
   id: string
-  tipo: TipoCarga
-  descricao: string
+  /** null = a skill classifica pela foto. */
+  tipo: TipoCarga | null
+  /** Nome da carga; null = a skill nomeia pela foto. */
+  descricao: string | null
   local: string | null
-  potencia_w: number
+  /** null = a skill lê a placa na foto ou estima pela categoria. */
+  potencia_w: number | null
   potencia_origem: OrigemPotencia
   quantidade: number
   em_uso: boolean
@@ -125,8 +148,13 @@ export interface MedicaoJson {
 export interface IntervencaoJson {
   id: string
   sistema: Sistema
-  acao: string
-  /** Texto livre do consultor; base do texto do relatório. */
+  /** Nome curto da ação (até 22 caracteres); null = a skill resume a partir dos textos. */
+  acao: string | null
+  /** Nome ou identificação do equipamento em que a ação foi feita. */
+  equipamento: string | null
+  /** Modificação proposta (oportunidade): base das abas B4.x e B5. */
+  proposta: string | null
+  /** Intervenção efetuada: base da B6 e dos textos do relatório. */
   descricao: string | null
   carga_ids: string[]
   /** Em quantos aparelhos a ação foi feita (não o total de aparelhos do tipo). */
@@ -152,6 +180,14 @@ export interface AcaoTarifariaJson {
   reducao_real_rs_ano: number | null
 }
 
+/** Situação de cada aba de sistema (A5 a A13) no app. */
+export interface SistemaJson {
+  aba: string
+  sistema: Sistema
+  /** false = marcado "não se aplica"; true = há equipamento cadastrado; null = não avaliado. */
+  aplicavel: boolean | null
+}
+
 export interface AtendimentoJson {
   versao: typeof VERSAO_CONTRATO
   gerado_em: string
@@ -159,6 +195,7 @@ export interface AtendimentoJson {
   atendimento: AtendimentoInfoJson
   energia: EnergiaJson
   cargas: CargaJson[]
+  sistemas: SistemaJson[]
   intervencoes: IntervencaoJson[]
   tarifario: AcaoTarifariaJson[]
 }

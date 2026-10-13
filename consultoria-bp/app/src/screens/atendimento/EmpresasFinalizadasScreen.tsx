@@ -1,11 +1,14 @@
 import React, { useCallback } from 'react'
-import { View, FlatList, StyleSheet } from 'react-native'
+import { View, Text, FlatList, StyleSheet, Alert } from 'react-native'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import { AppStackParamList } from '../../navigation/types'
 import { useEmpresaStore } from '../../store/empresaStore'
 import { useAuthStore } from '../../store/authStore'
-import { listEmpresas } from '../../db/operations'
+import { getOrCreateAtendimento, listEmpresas } from '../../db/operations'
+import { reabrirAtendimento } from '../../db/faseA'
+import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
+import { Empresa } from '../../types/empresa'
 import EmpresaCard from '../../components/empresa/EmpresaCard'
 import EmptyState from '../../components/common/EmptyState'
 import { Colors } from '../../constants/colors'
@@ -26,6 +29,33 @@ export default function EmpresasFinalizadasScreen() {
 
   const finalizadas = empresas.filter((e) => e.status === 'finalizada')
 
+  // Reabrir devolve a empresa para "em atendimento"; ao finalizar de novo, a data de fim passa a ser a nova.
+  const reabrir = (empresa: Empresa) => {
+    Alert.alert(
+      'Reabrir consultoria',
+      `Reabrir a consultoria de ${empresa.razao_social}? A empresa volta para Empresas em Atendimento e pode ser editada.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reabrir',
+          onPress: async () => {
+            try {
+              const atendimentoId = await getOrCreateAtendimento(empresa.id, {
+                consultor_1: consultor?.nome ?? '', tipo_consultoria: 'Eficiência Energética', status_modulos: {},
+              })
+              await reabrirAtendimento(atendimentoId, empresa.id)
+              if (consultor) setEmpresas(await listEmpresas(consultor.email))
+              sincronizarEmSegundoPlano(empresa.id)
+              navigation.navigate('DetalhesEmpresa', { empresaId: empresa.id })
+            } catch (e: any) {
+              Alert.alert('Erro', e?.message ?? 'Não foi possível reabrir.')
+            }
+          },
+        },
+      ]
+    )
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -34,9 +64,10 @@ export default function EmpresasFinalizadasScreen() {
         renderItem={({ item }) => (
           <EmpresaCard
             empresa={item}
-            onPress={() => navigation.navigate('DetalhesEmpresa', { empresaId: item.id })}
+            onPress={() => reabrir(item)}
           />
         )}
+        ListHeaderComponent={finalizadas.length > 0 ? <Text style={styles.dica}>Toque em uma empresa para reabrir a consultoria.</Text> : null}
         ListEmptyComponent={
           <EmptyState
             icon="✅"
@@ -52,4 +83,5 @@ export default function EmpresasFinalizadasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.grayLight },
+  dica: { fontSize: 13, color: Colors.gray, marginHorizontal: 16, marginTop: 8, marginBottom: 4 },
 })
