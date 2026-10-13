@@ -131,17 +131,6 @@ export function validarIntervencao(it: IntervencaoJson, cargas: CargaJson[], con
   return p
 }
 
-/** Soma das cargas contra o consumo médio faturado: a aba A4 pede entre 80% e 120%. */
-export function validarSomaDasCargas(cargas: CargaJson[], consumoMedioKwhMes: number | null | undefined): Problema[] {
-  if (!consumoMedioKwhMes || consumoMedioKwhMes <= 0) return []
-  const soma = cargas.reduce((s, c) => s + kwhMesNominal(c), 0)
-  if (soma === 0) return []
-  const razao = soma / consumoMedioKwhMes
-  if (razao < 0.8) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês, ${(razao * 100).toFixed(0)}% do consumo médio faturado (${consumoMedioKwhMes} kWh). Falta carga ou horário de uso.` }]
-  if (razao > 1.2) return [{ nivel: 'alerta', campo: 'cargas', mensagem: `As cargas somam ${soma.toFixed(0)} kWh por mês com potência cheia, ${razao.toFixed(1)} vezes o consumo médio faturado (${consumoMedioKwhMes} kWh). O fator de utilização é ajustado no relatório; revise horas e dias de uso se a diferença for grande.` }]
-  return []
-}
-
 /** Pendências mostradas na conferência da conclusão (não impedem concluir). */
 export function pendenciasDaConclusao(j: { empresa: { cartao_cnpj: string | null; responsavel_legal: string | null; regime: string | null }; energia: { faturas: unknown[] }; cargas: unknown[]; intervencoes: unknown[] }): string[] {
   const p: string[] = []

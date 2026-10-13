@@ -54,11 +54,6 @@ export function mesmaPasta(a: string | null, b: string | null): boolean {
   return chave(a) === chave(b)
 }
 
-/** Frase pronta para pedir o relatório à Claude (mostrada na conclusão). */
-export function frasePedidoRelatorio(pasta: string): string {
-  return `Preencha o relatório EE da pasta "${pasta}" do meu Drive.`
-}
-
 export function montarAtendimento(d: DadosParaExportar, agora: Date = new Date()): { json: AtendimentoJson; arquivos: ArquivoParaEnvio[] } {
   const arquivos: ArquivoParaEnvio[] = []
   const anexar = (origem: string | null | undefined, destino: string): string | null => {

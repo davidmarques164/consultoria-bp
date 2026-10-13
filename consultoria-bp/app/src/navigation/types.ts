@@ -8,8 +8,6 @@ export type RootStackParamList = {
 export type AppStackParamList = {
   Home: undefined
   NovaEmpresa: undefined
-  CadastroPlataforma: undefined
-  FormularioColeta: undefined
   EmpresasEmAtendimento: undefined
   EmpresasFinalizadas: undefined
   DetalhesEmpresa: { empresaId: string }

@@ -4,8 +4,8 @@
  * Os números de medição repetem um caso real (ar-condicionado usado só no expediente); a empresa é inventada.
  */
 import assert from 'node:assert/strict'
-import { atendimentoParaMarkdown, frasePedidoRelatorio, mesmaPasta, montarAtendimento, nomePastaEmpresa } from '../src/utils/atendimentoJson'
-import { pendenciasDaConclusao, validarCarga, validarIntervencao, validarSomaDasCargas } from '../src/utils/validacoes'
+import { atendimentoParaMarkdown, mesmaPasta, montarAtendimento, nomePastaEmpresa } from '../src/utils/atendimentoJson'
+import { pendenciasDaConclusao, validarCarga, validarIntervencao } from '../src/utils/validacoes'
 import { horaDigitada, numeroDigitado, numeroParaCampo } from '../src/utils/entrada'
 import { cargaDoForm, formCargaEmBranco, formCargaVazio, formDaCarga, formDaIntervencao, formIntervencaoEmBranco, formIntervencaoVazio, intervencaoDoForm } from '../src/utils/formularios'
 import { CONFIG_SISTEMAS } from '../src/constants/sistemas'
@@ -120,7 +120,6 @@ assert.equal(nomePastaEmpresa('  Gráfica  A/B: "Exemplo"  '), 'Gráfica A B Exe
 assert.equal(nomePastaEmpresa(''), 'Empresa sem nome')
 assert.ok(mesmaPasta('Gráfica Exemplo', ' grafica  exemplo '))
 assert.ok(!mesmaPasta('Gráfica Exemplo', 'Gráfica Exemplo 2'))
-assert.match(frasePedidoRelatorio('GRAFICA EXEMPLO LTDA'), /Preencha o relatório EE da pasta/)
 
 const semA10 = montarAtendimento({ ...dados, atendimento: { ...atendimento, sistemas_nao_aplicaveis: ['A10'] } })
 assert.equal(semA10.json.intervencoes.length, 0, 'sistema marcado como não aplicável não leva equipamento')
@@ -173,9 +172,6 @@ assert.ok(alertas(validarIntervencao({ ...it, medicao: { ...it.medicao, dias_uso
 // redução abaixo de 10%
 assert.ok(alertas(validarIntervencao({ ...it, medicao: { ...it.medicao, depois: { ...it.medicao.depois, valor: 11 } } }, json.cargas, 41)).some((m) => /abaixo da meta/.test(m)))
 
-// soma das cargas: 39 + 60 = 99 kWh com potência cheia, 2,4 vezes os 41 kWh faturados
-assert.ok(validarSomaDasCargas(json.cargas, 41)[0].mensagem.includes('2,4 vezes') || validarSomaDasCargas(json.cargas, 41)[0].mensagem.includes('2.4 vezes'))
-assert.deepEqual(validarSomaDasCargas(json.cargas, null), [])
 
 const pend = pendenciasDaConclusao(json)
 assert.ok(!pend.some((p) => /Cartão CNPJ/.test(p)) && pend.some((p) => /Responsável legal/.test(p)) && pend.some((p) => /Só 2 fatura/.test(p)))
@@ -184,7 +180,6 @@ assert.ok(pendenciasDaConclusao({ ...json, empresa: { ...json.empresa, cartao_cn
 const textos = [
   ...json.cargas.flatMap((c) => validarCarga({ ...c, descricao: 'Impressora multifuncional a laser', potencia_w: null, fotos: [], uso: null })),
   ...validarIntervencao({ ...soFotos, medicao: { ...soFotos.medicao, antes: { valor: 5, data: null, foto: null } } }, []),
-  ...validarSomaDasCargas(json.cargas, 41),
 ].map((p) => p.mensagem).concat(pend)
 assert.ok(textos.length > 8 && !textos.some((t) => /skill|claude/i.test(t)), 'nenhuma mensagem do app cita a skill')
 

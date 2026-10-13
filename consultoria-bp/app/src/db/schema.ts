@@ -106,6 +106,8 @@ async function migrarFaseA(db: SQLite.SQLiteDatabase) {
   await addColumnIfMissing(db, 'intervencoes', 'proposta', 'TEXT')
 }
 
+// Tabelas e colunas do app antigo que ainda existam em aparelhos já instalados ficam lá, sem uso:
+// apagá-las exigiria migração e não muda nada para o app.
 async function initSchema(db: SQLite.SQLiteDatabase) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS consultor (
@@ -163,22 +165,8 @@ async function initSchema(db: SQLite.SQLiteDatabase) {
       cidade_dr TEXT,
       estado_dr TEXT,
       nome_uo TEXT,
-      bt_ou_at TEXT,
-      horarios_concessionaria TEXT,
-      tarifas_branca TEXT,
-      pci_glp REAL,
-      pci_gn REAL,
-      pci_lenha REAL,
-      pci_biomassa REAL,
-      sankey_codigo TEXT,
-      sankey_imagem_path TEXT,
-      recomendacao_tarifa TEXT,
-      oportunidades TEXT,
-      acoes_realizadas TEXT,
-      indicadores_finais TEXT,
       status_modulos TEXT DEFAULT '{}',
       status TEXT DEFAULT 'em_andamento',
-      planilha_sincronizada INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -193,56 +181,12 @@ async function initSchema(db: SQLite.SQLiteDatabase) {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS usos_finais (
-      id TEXT PRIMARY KEY,
-      atendimento_id TEXT NOT NULL REFERENCES atendimentos(id),
-      geracao TEXT,
-      consumo_local TEXT,
-      energia_mensal REAL,
-      unidade TEXT,
-      pci REAL,
-      ordem INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS cargas_iluminacao (
-      id TEXT PRIMARY KEY,
-      atendimento_id TEXT NOT NULL REFERENCES atendimentos(id),
-      tipo TEXT DEFAULT 'atual',
-      local_instalacao TEXT,
-      modelo TEXT,
-      potencia_w REAL,
-      quantidade INTEGER,
-      horas_dia REAL,
-      horas_fds REAL,
-      custo_substituicao REAL,
-      ordem INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS motores (
-      id TEXT PRIMARY KEY,
-      atendimento_id TEXT NOT NULL REFERENCES atendimentos(id),
-      tipo TEXT DEFAULT 'atual',
-      local_instalacao TEXT,
-      modelo TEXT,
-      potencia_cv REAL,
-      quantidade INTEGER,
-      rendimento REAL,
-      fator_carga REAL,
-      horas_dia REAL,
-      horas_fds REAL,
-      custo_substituicao REAL,
-      ordem INTEGER DEFAULT 0
-    );
-
     CREATE TABLE IF NOT EXISTS faturas (
       id TEXT PRIMARY KEY,
       empresa_id TEXT NOT NULL REFERENCES empresas(id),
       arquivo_path TEXT,
       drive_file_id TEXT,
       mes_referencia TEXT,
-      dados_extraidos TEXT,
-      confianca TEXT,
-      revisado INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
 
