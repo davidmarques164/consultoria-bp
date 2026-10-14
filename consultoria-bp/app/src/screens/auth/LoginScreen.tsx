@@ -1,16 +1,6 @@
 import React, { useState } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ImageBackground,
-  Image,
-  Alert,
-  StatusBar,
-} from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { signIn, signOut } from '../../services/googleAuth'
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, StatusBar, ScrollView } from 'react-native'
+import { signIn } from '../../services/googleAuth'
 import { useAuthStore } from '../../store/authStore'
 import { getDB } from '../../db/schema'
 import { Colors } from '../../constants/colors'
@@ -41,67 +31,47 @@ export default function LoginScreen() {
   }
 
   return (
-    <ImageBackground
-      source={require('../../../assets/images/login_bg.png')}
-      style={styles.bg}
-      resizeMode="cover"
-    >
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <LinearGradient
-        colors={['transparent', 'rgba(0,114,188,0.85)', '#0072BC']}
-        locations={[0, 0.4, 1]}
-        style={styles.gradient}
-      >
-        <View style={styles.content}>
-          <Image
-            source={require('../../../assets/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.title}>Consultoria B+P</Text>
-          <Text style={styles.subtitle}>Eficiência Energética</Text>
-          <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleLogin} activeOpacity={0.9}>
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleText}>Entrar com Google</Text>
-          </TouchableOpacity>
-          <Text style={styles.hint}>
-            Use sua conta Google para entrar
-          </Text>
-        </View>
-      </LinearGradient>
+    <View style={styles.tela}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+      <ScrollView contentContainerStyle={styles.conteudo} bounces={false}>
+        <Image source={require('../../../assets/images/login_foto.webp')} style={styles.foto} resizeMode="contain" />
+        <Image source={require('../../../assets/images/login_logo.webp')} style={styles.logo} resizeMode="contain" />
+        <Text style={styles.title}>Consultoria B+P</Text>
+        <Text style={styles.subtitle}>Eficiência Energética</Text>
+        <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleLogin} activeOpacity={0.9}>
+          <Text style={styles.googleIcon}>G</Text>
+          <Text style={styles.googleText}>Entrar com Google</Text>
+        </TouchableOpacity>
+      </ScrollView>
       <LoadingOverlay visible={loading} message="Entrando..." />
-    </ImageBackground>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1 },
-  gradient: { flex: 1, justifyContent: 'flex-end' },
-  content: { paddingHorizontal: 32, paddingBottom: 60, alignItems: 'center' },
-  logo: { width: 160, height: 80, marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', color: Colors.white, marginBottom: 4 },
-  subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginBottom: 40 },
+  tela: { flex: 1, backgroundColor: Colors.white },
+  conteudo: { flexGrow: 1, alignItems: 'center', paddingBottom: 40 },
+  // foto no canto superior direito
+  foto: { alignSelf: 'flex-end', width: '85%', height: undefined, aspectRatio: 900 / 996 },
+  // logo centralizada, logo abaixo da foto
+  logo: { width: '75%', height: undefined, aspectRatio: 800 / 314, marginTop: 4 },
+  title: { fontSize: 24, fontWeight: '800', color: Colors.black, marginTop: 12 },
+  subtitle: { fontSize: 16, color: Colors.gray, marginTop: 2, marginBottom: 28 },
   googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.white,
+    borderWidth: 1.5,
+    borderColor: Colors.grayMid,
     borderRadius: 10,
     paddingVertical: 14,
-    paddingHorizontal: 28,
-    width: '100%',
-    marginBottom: 16,
+    width: '84%',
     shadowColor: '#000',
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 3,
   },
-  googleIcon: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.blue,
-    marginRight: 12,
-    fontFamily: 'serif',
-  },
+  googleIcon: { fontSize: 18, fontWeight: '700', color: Colors.blue, marginRight: 12, fontFamily: 'serif' },
   googleText: { fontSize: 16, fontWeight: '700', color: Colors.black },
-  hint: { fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
 })
