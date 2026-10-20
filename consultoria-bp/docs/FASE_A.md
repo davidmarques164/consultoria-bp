@@ -52,6 +52,15 @@ O app cria a raiz e as pastas com o login Google de quem está usando, sem backe
   dele encontra a pasta compartilhada pelo nome e grava as empresas lá dentro;
 - o modelo V9 em branco é posto uma vez em `Consultoria B+P/modelo`; o app copia para cada empresa.
 
+## Nada do que é digitado se perde
+
+As telas A1, A4, A5–A13 e B2 gravam sozinhas, pouco depois de cada alteração, ao mandar o app para o
+fundo e ao sair da tela (`src/hooks/useAutoSalvar.ts`). O botão Salvar continua, para confirmar e ver
+os avisos. O que está escrito em A4 e A5–A13 também fica num rascunho da tela (`src/db/rascunhos.ts`),
+exatamente como foi digitado, inclusive o que ainda está incompleto; só some quando o consultor apaga
+o item. Uma carga pode ter só o nome: a foto é apoio. A potência pode ser digitada em W ou em cv; o
+valor é guardado em watts e o `atendimento.json` informa também como foi digitado (`potencia_informada`).
+
 ## Quando a pasta do Drive é atualizada
 
 - **No cadastro da empresa:** a pasta é criada e recebe o cartão CNPJ e o `atendimento.json`.

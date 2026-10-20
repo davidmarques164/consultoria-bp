@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import * as DocumentPicker from 'expo-document-picker'
@@ -10,6 +10,7 @@ import { upsertHistoricoConsumo, getHistoricoConsumo, updateAtendimento } from '
 import { excluirFaturaArquivo, listarFaturasArquivo, marcarInicio, salvarFaturaArquivo } from '../../db/faseA'
 import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
 import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
+import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { HistoricoMes } from '../../types/atendimento'
 import { FaturaArquivo } from '../../types/faseA'
@@ -60,6 +61,7 @@ export default function A1_HistoricoConsumoScreen() {
   const [loadingMsg, setLoadingMsg] = useState('')
   // muda quando os dados chegam do banco, para os campos da tabela (não controlados) mostrarem o valor salvo
   const [carga, setCarga] = useState(0)
+  const [pronto, setPronto] = useState(false)
 
   useEffect(() => { loadData() }, [atendimentoId])
 
@@ -74,12 +76,23 @@ export default function A1_HistoricoConsumoScreen() {
       }))
       setArquivos(lista)
       setCarga((n) => n + 1)
+      setPronto(true)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível carregar os dados.')
     }
   }
 
   const doInsumo = arquivos.filter((a) => a.insumo === activeTab)
+
+  // A tabela dos outros insumos e as senhas das faturas gravam sozinhas, sem depender do botão Salvar
+  // arquivos apagados nesta tela: uma gravação que já estava em curso não pode trazê-los de volta
+  const removidos = useRef(new Set<string>())
+  const gravarTudo = async ({ h, a }: { h: typeof historico; a: FaturaArquivo[] }) => {
+    for (const insumo of OUTROS) await upsertHistoricoConsumo(atendimentoId, insumo, h[insumo])
+    for (const f of a) if (!removidos.current.has(f.id)) await salvarFaturaArquivo(empresaId, atendimentoId, { ...f, senha: f.senha?.trim() ? f.senha.trim() : null })
+  }
+  const estadoTela = useMemo(() => ({ h: historico, a: arquivos }), [historico, arquivos])
+  useAutoSalvar(estadoTela, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
 
   const handleEnviar = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], multiple: true, copyToCacheDirectory: true })
@@ -124,6 +137,7 @@ export default function A1_HistoricoConsumoScreen() {
         text: 'Remover', style: 'destructive',
         onPress: async () => {
           try {
+            removidos.current.add(a.id)
             await excluirFaturaArquivo(a.id)
             if (a.arquivo_path) await apagarArquivo(a.arquivo_path).catch(() => {})
             setArquivos((p) => p.filter((x) => x.id !== a.id))

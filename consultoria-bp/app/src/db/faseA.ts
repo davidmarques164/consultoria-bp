@@ -77,7 +77,7 @@ export async function reabrirAtendimento(atendimentoId: string, empresaId: strin
 function linhaParaCarga(r: any): Carga {
   return {
     id: r.id, atendimento_id: r.atendimento_id, ordem: r.ordem ?? 0, tipo: textoOuNulo(r.tipo) as Carga['tipo'],
-    descricao: textoOuNulo(r.descricao), local: r.local ?? null, potencia_w: numeroOuNulo(r.potencia_w),
+    descricao: textoOuNulo(r.descricao), local: r.local ?? null, potencia_w: numeroOuNulo(r.potencia_w), potencia_unidade: r.potencia_unidade === 'cv' ? 'cv' : 'W',
     potencia_origem: r.potencia_origem ?? 'informada',
     quantidade: r.quantidade ?? 1, em_uso: r.em_uso !== 0, dias_semana: r.dias_semana ?? null, dias_mes: r.dias_mes ?? null,
     intervalos: lista<[string, string][]>(r.intervalos, []), uso_final: r.uso_final ?? null, fotos: lista<string[]>(r.fotos, []),
@@ -101,14 +101,14 @@ export async function salvarCarga(c: Omit<Carga, 'id' | 'ordem'> & { id?: string
     ordem = (m?.n ?? 0) + 1
   }
   await db.runAsync(
-    `INSERT INTO cargas (id,atendimento_id,ordem,tipo,descricao,local,potencia_w,potencia_origem,quantidade,em_uso,
+    `INSERT INTO cargas (id,atendimento_id,ordem,tipo,descricao,local,potencia_w,potencia_unidade,potencia_origem,quantidade,em_uso,
        dias_semana,dias_mes,intervalos,uso_final,fotos,created_at,updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET tipo=excluded.tipo, descricao=excluded.descricao, local=excluded.local,
-       potencia_w=excluded.potencia_w, potencia_origem=excluded.potencia_origem, quantidade=excluded.quantidade,
+       potencia_w=excluded.potencia_w, potencia_unidade=excluded.potencia_unidade, potencia_origem=excluded.potencia_origem, quantidade=excluded.quantidade,
        em_uso=excluded.em_uso, dias_semana=excluded.dias_semana, dias_mes=excluded.dias_mes,
        intervalos=excluded.intervalos, uso_final=excluded.uso_final, fotos=excluded.fotos, updated_at=excluded.updated_at`,
-    [id, c.atendimento_id, ordem, c.tipo ?? '', c.descricao ?? '', c.local ?? null, c.potencia_w ?? 0, c.potencia_origem, c.quantidade,
+    [id, c.atendimento_id, ordem, c.tipo ?? '', c.descricao ?? '', c.local ?? null, c.potencia_w ?? 0, c.potencia_unidade ?? 'W', c.potencia_origem, c.quantidade,
      c.em_uso ? 1 : 0, c.dias_semana ?? null, c.dias_mes ?? null, JSON.stringify(c.intervalos ?? []), c.uso_final ?? null,
      JSON.stringify(c.fotos ?? []), t, t]
   )

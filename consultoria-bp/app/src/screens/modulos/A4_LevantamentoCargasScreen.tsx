@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useRoute } from '@react-navigation/native'
@@ -17,6 +17,8 @@ import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { Carga } from '../../types/faseA'
 import { cargaDoForm, formCargaEmBranco, formCargaVazio, formDaCarga, FormCarga } from '../../utils/formularios'
 import { novoId } from '../../utils/id'
+import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
+import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 
 type Route = RouteProp<AppStackParamList, 'A4_LevantamentoCargas'>
 
@@ -30,8 +32,8 @@ const cartaoNovo = (): Cartao => {
 
 /**
  * A4 — Levantamento de cargas.
- * O consultor fotografa cada carga e informa nome, potência e tempo de uso.
- * Só a foto já basta: o que ficar em branco a skill preenche (placa, tipo, estimativa).
+ * O consultor informa nome, potência (W ou cv) e tempo de uso; a foto é apoio, quando não se sabe o nome.
+ * Tudo o que é digitado fica gravado (rascunho + registro) até o consultor apagar o item.
  */
 export default function A4_LevantamentoCargasScreen() {
   const route = useRoute<Route>()
@@ -41,18 +43,43 @@ export default function A4_LevantamentoCargasScreen() {
   const [cartoes, setCartoes] = useState<Cartao[]>([])
   const [salvas, setSalvas] = useState<Record<string, Carga>>({})
   const [loading, setLoading] = useState(false)
+  const [pronto, setPronto] = useState(false)
+  const chaveRascunho = `A4:${atendimentoId}`
 
   useEffect(() => { carregar() }, [atendimentoId])
 
+  // O que foi digitado volta exatamente como estava (rascunho); cargas gravadas que não estejam
+  // no rascunho (de uma versão anterior do app) entram no fim.
   const carregar = async () => {
     try {
-      const lista = await listarCargas(atendimentoId)
+      const [lista, rascunho] = await Promise.all([listarCargas(atendimentoId), lerRascunho<Cartao[]>(chaveRascunho)])
       setSalvas(Object.fromEntries(lista.map((c) => [c.id, c])))
-      setCartoes(lista.length > 0 ? lista.map((c) => ({ ...formDaCarga(c), chave: c.id })) : [cartaoNovo()])
+      const doRascunho = (rascunho ?? []).map((c) => ({ ...formCargaVazio(), ...c }))
+      const ids = new Set(doRascunho.map((c) => c.id))
+      const deFora = lista.filter((c) => !ids.has(c.id)).map((c) => ({ ...formDaCarga(c), chave: c.id }))
+      const todos = [...doRascunho, ...deFora]
+      setCartoes(todos.length > 0 ? todos : [cartaoNovo()])
+      setPronto(true)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível carregar as cargas.')
     }
   }
+
+  // Grava sozinho: o rascunho da tela inteira e cada carga que já pode virar registro.
+  // Só um nome, só uma foto ou os dois: tudo fica guardado até o consultor apagar.
+  // itens apagados nesta tela: uma gravação que já estava em curso não pode trazê-los de volta
+  const removidos = useRef(new Set<string>())
+  const gravarTudo = async (lista: Cartao[]) => {
+    await gravarRascunho(chaveRascunho, lista.filter((c) => !removidos.current.has(c.chave)))
+    let algum = false
+    for (const c of lista) {
+      if (removidos.current.has(c.chave)) continue
+      if (formCargaEmBranco(c)) continue
+      if (await gravar(c)) algum = true
+    }
+    if (algum) await updateAtendimento(atendimentoId, { status_modulos: { A4: true } })
+  }
+  useAutoSalvar(cartoes, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
 
   const alterar = (chave: string, dados: Partial<FormCarga>) => setCartoes((p) => p.map((c) => (c.chave === chave ? { ...c, ...dados } : c)))
 
@@ -77,6 +104,7 @@ export default function A4_LevantamentoCargasScreen() {
         text: 'Remover', style: 'destructive',
         onPress: async () => {
           try {
+            removidos.current.add(c.chave)
             if (c.id) await excluirCarga(c.id)
             for (const f of c.fotos) await apagarArquivo(f).catch(() => {})
             setCartoes((p) => p.filter((x) => x.chave !== c.chave))
@@ -100,10 +128,12 @@ export default function A4_LevantamentoCargasScreen() {
     }
     setLoading(true)
     try {
+      await gravarRascunho(chaveRascunho, cartoes)
       for (const c of preenchidos) await gravar(c)
       await updateAtendimento(atendimentoId, { status_modulos: { A4: preenchidos.length > 0 } })
       if (preenchidos.length > 0) marcarModuloConcluido('A4')
-      await carregar()
+      const lista = await listarCargas(atendimentoId)
+      setSalvas(Object.fromEntries(lista.map((x) => [x.id, x])))
       sincronizarEmSegundoPlano(empresaId)
       Alert.alert('Salvo!', `${preenchidos.length} carga(s) salva(s).`)
     } catch (e: any) {
@@ -116,7 +146,7 @@ export default function A4_LevantamentoCargasScreen() {
   return (
     <>
       <KeyboardScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-        <AlertBanner type="info" message="Fotografe cada carga (de preferência a placa) e informe nome, potência e tempo de uso. Se enviar só a foto, o restante é preenchido depois, a partir dela." />
+        <AlertBanner type="info" message="Informe nome, potência (W ou cv) e tempo de uso de cada carga. A foto é opcional e serve de apoio quando não se sabe o nome ou a potência. Tudo é gravado automaticamente." />
 
         {cartoes.map((c, i) => {
           const { problemas } = formCargaEmBranco(c) ? { problemas: [] } : cargaDoForm(c, atendimentoId)
@@ -132,7 +162,14 @@ export default function A4_LevantamentoCargasScreen() {
               <Campo rotulo="Nome da carga" valor={c.nome} onChange={(v) => alterar(c.chave, { nome: v })} placeholder="Ex.: Split 12.000 BTU" />
               <View style={styles.row}>
                 <View style={{ flex: 2 }}>
-                  <Campo rotulo="Potência / consumo (W)" valor={c.potencia} onChange={(v) => alterar(c.chave, { potencia: v })} num placeholder="da placa" />
+                  <Campo rotulo={`Potência (${c.unidade})`} valor={c.potencia} onChange={(v) => alterar(c.chave, { potencia: v })} num placeholder="da placa" />
+                </View>
+                <View style={styles.unidades}>
+                  {(['W', 'cv'] as const).map((u) => (
+                    <TouchableOpacity key={u} style={[styles.unidade, c.unidade === u && styles.unidadeAtiva]} onPress={() => alterar(c.chave, { unidade: u })}>
+                      <Text style={[styles.unidadeTexto, c.unidade === u && styles.unidadeTextoAtivo]}>{u}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Campo rotulo="Quantidade" valor={c.quantidade} onChange={(v) => alterar(c.chave, { quantidade: v })} num />
@@ -202,6 +239,11 @@ const styles = StyleSheet.create({
   remove: { color: Colors.danger, fontSize: 16, fontWeight: '700' },
   row: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
   menos: { paddingHorizontal: 6, paddingBottom: 18 },
+  unidades: { flexDirection: 'row', gap: 4, marginBottom: 8 },
+  unidade: { borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: Colors.white },
+  unidadeAtiva: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  unidadeTexto: { fontSize: 13, fontWeight: '700', color: Colors.gray },
+  unidadeTextoAtivo: { color: Colors.primaryDark },
   sub: { fontSize: 13, fontWeight: '700', color: Colors.black, marginTop: 4, marginBottom: 6 },
   link: { color: Colors.blue, fontSize: 12, fontWeight: '600', marginBottom: 6 },
   erro: { color: Colors.danger, fontSize: 12, marginTop: 4 },

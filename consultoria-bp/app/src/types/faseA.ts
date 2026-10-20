@@ -1,5 +1,5 @@
 /** Registros da fase A como ficam no SQLite (ids uuid, fotos como caminhos locais do aparelho). */
-import { OrigemPotencia, PeriodoMedicao, Sistema, TipoCarga, TipoTarifario } from './atendimentoJson'
+import { OrigemPotencia, UnidadePotencia, PeriodoMedicao, Sistema, TipoCarga, TipoTarifario } from './atendimentoJson'
 
 export interface Carga {
   id: string
@@ -9,6 +9,8 @@ export interface Carga {
   descricao: string | null
   local: string | null
   potencia_w: number | null
+  /** Unidade em que a potência foi digitada; o valor fica sempre em watts. */
+  potencia_unidade: UnidadePotencia
   potencia_origem: OrigemPotencia
   quantidade: number
   em_uso: boolean

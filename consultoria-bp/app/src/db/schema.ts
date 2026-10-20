@@ -104,6 +104,8 @@ async function migrarFaseA(db: SQLite.SQLiteDatabase) {
   await addColumnIfMissing(db, 'atendimentos', 'sistemas_nao_aplicaveis', 'TEXT')
   await addColumnIfMissing(db, 'intervencoes', 'equipamento', 'TEXT')
   await addColumnIfMissing(db, 'intervencoes', 'proposta', 'TEXT')
+  await addColumnIfMissing(db, 'cargas', 'potencia_unidade', 'TEXT')
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS rascunhos (chave TEXT PRIMARY KEY, conteudo TEXT NOT NULL, updated_at TEXT)`)
 }
 
 // Tabelas e colunas do app antigo que ainda existam em aparelhos já instalados ficam lá, sem uso:

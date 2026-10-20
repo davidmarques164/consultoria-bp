@@ -4,7 +4,7 @@
  */
 import { Empresa } from '../types/empresa'
 import {
-  AtendimentoJson, ArquivoParaEnvio, CargaJson, IntervencaoJson, OUTROS_INSUMOS, REGIMES, Regime, SISTEMAS, VERSAO_CONTRATO,
+  AtendimentoJson, ArquivoParaEnvio, CargaJson, IntervencaoJson, OUTROS_INSUMOS, REGIMES, Regime, SISTEMAS, VERSAO_CONTRATO, W_POR_CV,
 } from '../types/atendimentoJson'
 import { AcaoTarifaria, AtendimentoFaseA, Carga, FaturaArquivo, Intervencao } from '../types/faseA'
 
@@ -106,7 +106,9 @@ export function montarAtendimento(d: DadosParaExportar, agora: Date = new Date()
     const temUso = c.em_uso && (c.intervalos.length > 0 || c.dias_semana !== null || c.dias_mes !== null)
     return {
       id, tipo: c.tipo ?? null, descricao: txt(c.descricao), local: txt(c.local),
-      potencia_w: num(c.potencia_w), potencia_origem: c.potencia_origem, quantidade: c.quantidade, em_uso: c.em_uso,
+      potencia_w: num(c.potencia_w), potencia_origem: c.potencia_origem,
+      potencia_informada: c.potencia_unidade === 'cv' && num(c.potencia_w) !== null
+        ? `${String(Math.round(((c.potencia_w as number) / W_POR_CV) * 1000) / 1000).replace('.', ',')} cv` : null, quantidade: c.quantidade, em_uso: c.em_uso,
       uso: temUso ? { dias_semana: num(c.dias_semana), dias_mes: num(c.dias_mes), intervalos: c.intervalos } : null,
       uso_final: txt(c.uso_final), fotos,
     }
@@ -225,7 +227,7 @@ export function atendimentoParaMarkdown(j: AtendimentoJson): string {
           : c.uso?.dias_semana !== null && c.uso?.dias_semana !== undefined ? `${c.uso.dias_semana} dias/semana` : ''
         uso = [horario, dias].filter(Boolean).join(', ') || 'não informado'
       }
-      const potencia = c.potencia_w === null ? 'ler na foto' : `${nBR(c.potencia_w)} (${c.potencia_origem})`
+      const potencia = c.potencia_w === null ? 'ler na foto' : `${nBR(c.potencia_w)}${c.potencia_informada ? ` = ${c.potencia_informada}` : ''} (${c.potencia_origem})`
       L.push(`| ${c.id} | ${ou(c.tipo, 'a classificar')} | ${ou(c.descricao, 'ver foto')} | ${ou(c.local, '')} | ${potencia} | ${c.quantidade} | ${uso} | ${c.fotos.join(', ')} |`)
     }
   }

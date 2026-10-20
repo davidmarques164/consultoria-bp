@@ -14,6 +14,7 @@ import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useAuthStore } from '../../store/authStore'
 import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { marcarInicio } from '../../db/faseA'
+import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 
 type Route = RouteProp<AppStackParamList, 'B2_DadosGerais'>
 
@@ -36,7 +37,14 @@ export default function B2_DadosGeraisScreen() {
     nome_uo: '',
   })
 
+  const [pronto, setPronto] = useState(false)
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }))
+
+  // grava sozinho a cada alteração; o botão Salvar continua para confirmar
+  useAutoSalvar(form, pronto, async (f) => {
+    await updateAtendimento(atendimentoId, { ...f })
+    await marcarInicio(atendimentoId)
+  }, () => sincronizarEmSegundoPlano(empresaId))
 
   useEffect(() => { loadData() }, [atendimentoId])
 
@@ -55,6 +63,7 @@ export default function B2_DadosGeraisScreen() {
         nome_uo: at.nome_uo ?? '',
       })
     }
+    setPronto(true)
   }
 
   const handleSalvar = async () => {

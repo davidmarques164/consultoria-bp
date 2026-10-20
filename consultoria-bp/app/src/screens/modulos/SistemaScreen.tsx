@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useRoute } from '@react-navigation/native'
@@ -19,6 +19,8 @@ import { Intervencao } from '../../types/faseA'
 import { formDaIntervencao, formIntervencaoEmBranco, formIntervencaoVazio, FormIntervencao, intervencaoDoForm } from '../../utils/formularios'
 import { novoId } from '../../utils/id'
 import { Problema } from '../../utils/validacoes'
+import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
+import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 
 type Cartao = FormIntervencao & { chave: string }
 
@@ -48,20 +50,45 @@ export default function SistemaScreen() {
   const [salvas, setSalvas] = useState<Record<string, Intervencao>>({})
   const [naoAplicavel, setNaoAplicavel] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [pronto, setPronto] = useState(false)
+  const chaveRascunho = `${cfg.aba}:${atendimentoId}`
 
   useEffect(() => { carregar() }, [atendimentoId, cfg.aba])
 
+  // O que foi digitado volta exatamente como estava (rascunho); itens gravados fora do rascunho entram no fim.
   const carregar = async () => {
     try {
-      const [todas, at] = await Promise.all([listarIntervencoes(atendimentoId), getAtendimentoFaseA(atendimentoId)])
+      const [todas, at, rascunho] = await Promise.all([
+        listarIntervencoes(atendimentoId), getAtendimentoFaseA(atendimentoId), lerRascunho<Cartao[]>(chaveRascunho),
+      ])
       const lista = todas.filter((i) => i.sistema === cfg.sistema)
       setSalvas(Object.fromEntries(lista.map((i) => [i.id, i])))
-      setCartoes(lista.length > 0 ? lista.map((i) => ({ ...formDaIntervencao(i), chave: i.id })) : [cartaoNovo()])
+      const doRascunho = (rascunho ?? []).map((c) => ({ ...formIntervencaoVazio(), ...c }))
+      const ids = new Set(doRascunho.map((c) => c.id))
+      const deFora = lista.filter((i) => !ids.has(i.id)).map((i) => ({ ...formDaIntervencao(i), chave: i.id }))
+      const todos = [...doRascunho, ...deFora]
+      setCartoes(todos.length > 0 ? todos : [cartaoNovo()])
       setNaoAplicavel((at?.sistemas_nao_aplicaveis ?? []).includes(cfg.aba))
+      setPronto(true)
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível carregar os dados.')
     }
   }
+
+  // Grava sozinho: o rascunho da tela e cada item que já pode virar registro.
+  // itens apagados nesta tela: uma gravação que já estava em curso não pode trazê-los de volta
+  const removidos = useRef(new Set<string>())
+  const gravarTudo = async (lista: Cartao[]) => {
+    await gravarRascunho(chaveRascunho, lista.filter((c) => !removidos.current.has(c.chave)))
+    let algum = false
+    for (const c of lista) {
+      if (removidos.current.has(c.chave)) continue
+      if (formIntervencaoEmBranco(c)) continue
+      if (await gravar(c)) algum = true
+    }
+    if (algum) await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: true } })
+  }
+  useAutoSalvar(cartoes, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
 
   const alterar = (chave: string, dados: Partial<FormIntervencao>) => setCartoes((p) => p.map((c) => (c.chave === chave ? { ...c, ...dados } : c)))
 
@@ -102,6 +129,7 @@ export default function SistemaScreen() {
         text: 'Remover', style: 'destructive',
         onPress: async () => {
           try {
+            removidos.current.add(c.chave)
             if (c.id) await excluirIntervencao(c.id)
             for (const f of [...c.fotosAntes, ...c.fotosDepois, c.fotoLeituraAntes, c.fotoLeituraDepois]) {
               if (f) await apagarArquivo(f).catch(() => {})
@@ -127,11 +155,13 @@ export default function SistemaScreen() {
     }
     setLoading(true)
     try {
+      await gravarRascunho(chaveRascunho, cartoes)
       for (const c of preenchidos) await gravar(c)
       const concluido = naoAplicavel || preenchidos.length > 0
       await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: concluido } })
       if (concluido) marcarModuloConcluido(cfg.aba)
-      await carregar()
+      const lista = (await listarIntervencoes(atendimentoId)).filter((i) => i.sistema === cfg.sistema)
+      setSalvas(Object.fromEntries(lista.map((x) => [x.id, x])))
       sincronizarEmSegundoPlano(empresaId)
       Alert.alert('Salvo!', naoAplicavel ? `${cfg.titulo}: marcado como não aplicável.` : `${cfg.titulo}: ${preenchidos.length} item(ns) salvo(s).`)
     } catch (e: any) {

@@ -15,6 +15,7 @@ import { exportarAtendimento } from '../src/services/exportAtendimento'
 import { CONFIG_SISTEMAS } from '../src/constants/sistemas'
 import { cargaDoForm, formCargaVazio, formDaCarga, formDaIntervencao, formIntervencaoVazio, intervencaoDoForm } from '../src/utils/formularios'
 import { novoId } from '../src/utils/id'
+import { gravarRascunho, lerRascunho } from '../src/db/rascunhos'
 
 async function main() {
   const db = await getDB()
@@ -124,6 +125,20 @@ async function main() {
   const trocado = await exportarAtendimento(empresaId, atendimentoId, { nome: null, email: null })
   assert.equal(trocado.json.empresa.cartao_cnpj, 'cartao_cnpj.jpg')
   assert.ok(trocado.arquivos.some((a) => a.origem === 'file:///docs/novo.jpg' && a.destino === 'cartao_cnpj.jpg'))
+
+  // ── rascunho da tela: volta exatamente como foi digitado, inclusive o que ainda é inválido ──
+  const rascunho = [{ ...formCargaVazio(), id: 'r1', chave: 'r1', nome: 'Torno', potencia: '3', unidade: 'cv', intervalos: [{ inicio: '8', fim: '' }] }]
+  assert.equal(await lerRascunho('A4:x'), null)
+  await gravarRascunho('A4:x', rascunho)
+  await gravarRascunho('A4:x', rascunho)
+  assert.deepEqual(await lerRascunho('A4:x'), rascunho)
+  // carga só com o nome e potência em cv: vira registro e volta em cv
+  const soNome = cargaDoForm({ ...formCargaVazio(), id: novoId(), nome: 'Moinho', potencia: '5', unidade: 'cv' }, atendimentoId)
+  await salvarCarga(soNome.carga)
+  const lida = (await listarCargas(atendimentoId)).find((c) => c.descricao === 'Moinho')!
+  assert.deepEqual([lida.potencia_w, lida.potencia_unidade, lida.fotos], [3677.5, 'cv', []])
+  assert.deepEqual([formDaCarga(lida).potencia, formDaCarga(lida).unidade], ['5', 'cv'])
+  await excluirCarga(lida.id)
 
   // ── remoção ───────────────────────────────────────────────────────────────
   await excluirCarga(cargas[0].id)

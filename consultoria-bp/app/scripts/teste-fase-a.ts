@@ -29,7 +29,7 @@ const atendimento: AtendimentoFaseA = {
   data_aceitacao: '15/09/2026', data_execucao: null, data_encerramento: '', cidade_dr: 'Fortaleza', estado_dr: 'CE', nome_uo: null,
   sistemas_nao_aplicaveis: ['A7', 'A8'],
 }
-const base = { atendimento_id: 'a1', potencia_origem: 'informada' as const, em_uso: true, dias_mes: null, uso_final: null, fotos: [] as string[] }
+const base = { atendimento_id: 'a1', potencia_unidade: 'W' as const, potencia_origem: 'informada' as const, em_uso: true, dias_mes: null, uso_final: null, fotos: [] as string[] }
 const cargas: Carga[] = [
   { ...base, id: 'uuid-ac-corte', ordem: 1, tipo: 'Ar-condicionado', descricao: 'AC sala de corte', local: 'Sala de corte', potencia_w: 1000, quantidade: 1,
     dias_semana: null, dias_mes: 3, intervalos: [['08:00', '21:00']], uso_final: 'Ar-condicionado', fotos: ['file:///fotos/IMG_0049.JPG'] },
@@ -203,7 +203,7 @@ assert.deepEqual(
   { d: soFoto.carga.descricao, p: soFoto.carga.potencia_w, q: soFoto.carga.quantidade, i: soFoto.carga.intervalos, t: soFoto.carga.tipo },
   { d: null, p: null, q: 1, i: [], t: null })
 // A4: tudo preenchido, com horário digitado de forma livre
-const cheia = cargaDoForm({ fotos: [], nome: ' Split 12.000 BTU ', potencia: '1100', quantidade: '2', dias: '5',
+const cheia = cargaDoForm({ fotos: [], nome: ' Split 12.000 BTU ', potencia: '1100', unidade: 'W', quantidade: '2', dias: '5',
   intervalos: [{ inicio: '8', fim: '12h' }, { inicio: '13:30', fim: '17' }] }, 'a1')
 assert.equal(erros(cheia.problemas), 0)
 assert.deepEqual(
@@ -213,6 +213,19 @@ assert.ok(erros(cargaDoForm({ ...formCargaVazio(), nome: 'x', potencia: 'mil' },
 assert.ok(erros(cargaDoForm({ ...formCargaVazio(), nome: 'x', potencia: '1.100' }, 'a1').problemas) > 0, '1.100 W: mil e cem ou 1,1? pede para redigitar')
 assert.ok(erros(cargaDoForm({ ...formCargaVazio(), nome: 'x', intervalos: [{ inicio: '8', fim: '' }] }, 'a1').problemas) > 0, 'horário pela metade')
 assert.ok(erros(cargaDoForm({ ...formCargaVazio(), nome: 'x', dias: '9' }, 'a1').problemas) > 0)
+// potência em cv: grava em watts, mostra de volta em cv e informa à skill como foi digitado
+const emCv = cargaDoForm({ ...formCargaVazio(), nome: 'Moinho', potencia: '5', unidade: 'cv' }, 'a1')
+assert.equal(erros(emCv.problemas), 0)
+assert.deepEqual([emCv.carga.potencia_w, emCv.carga.potencia_unidade], [3677.5, 'cv'])
+const voltaCv = formDaCarga({ ...emCv.carga, id: 'x', ordem: 1 })
+assert.deepEqual([voltaCv.potencia, voltaCv.unidade], ['5', 'cv'])
+const jsonCv = montarAtendimento({ ...dados, cargas: [{ ...emCv.carga, id: 'x', ordem: 1 }] }).json
+assert.deepEqual([jsonCv.cargas[0].potencia_w, jsonCv.cargas[0].potencia_informada], [3677.5, '5 cv'])
+assert.equal(json.cargas[0].potencia_informada, null, 'em watts não repete')
+assert.match(atendimentoParaMarkdown(jsonCv), /3\.677,5 = 5 cv/)
+// só o nome, sem foto: é uma carga válida
+assert.equal(erros(cargaDoForm({ ...formCargaVazio(), nome: 'Compressor' }, 'a1').problemas), 0)
+
 // ida e volta: editar uma carga salva não perde o que não aparece na tela (tipo, local)
 const volta = cargaDoForm(formDaCarga(cargas[0]), 'a1', cargas[0])
 assert.deepEqual({ ...volta.carga }, { ...cargas[0] })

@@ -3,7 +3,7 @@
  * encontrados. Funções puras, para poderem ser testadas fora do aparelho.
  */
 import { ConfigSistema } from '../constants/sistemas'
-import { CargaJson, IntervencaoJson, PeriodoMedicao } from '../types/atendimentoJson'
+import { CargaJson, IntervencaoJson, PeriodoMedicao, UnidadePotencia, W_POR_CV } from '../types/atendimentoJson'
 import { Carga, Intervencao } from '../types/faseA'
 import { DICA_NUMERO, horaDigitada, numeroDigitado, numeroParaCampo } from './entrada'
 import { Problema, validarCarga, validarIntervencao } from './validacoes'
@@ -18,16 +18,19 @@ export interface FormCarga {
   fotos: string[]
   nome: string
   potencia: string
+  /** Unidade em que a potência foi digitada (W ou cv). */
+  unidade: UnidadePotencia
   quantidade: string
   dias: string
   intervalos: { inicio: string; fim: string }[]
 }
 
-export const formCargaVazio = (): FormCarga => ({ fotos: [], nome: '', potencia: '', quantidade: '1', dias: '', intervalos: [{ inicio: '', fim: '' }] })
+export const formCargaVazio = (): FormCarga => ({ fotos: [], nome: '', potencia: '', unidade: 'W', quantidade: '1', dias: '', intervalos: [{ inicio: '', fim: '' }] })
 
 export function formDaCarga(c: Carga): FormCarga {
   return {
-    id: c.id, ordem: c.ordem, fotos: c.fotos, nome: c.descricao ?? '', potencia: numeroParaCampo(c.potencia_w),
+    id: c.id, ordem: c.ordem, fotos: c.fotos, nome: c.descricao ?? '', unidade: c.potencia_unidade ?? 'W',
+    potencia: numeroParaCampo(c.potencia_w === null ? null : c.potencia_unidade === 'cv' ? Math.round((c.potencia_w / W_POR_CV) * 1000) / 1000 : c.potencia_w),
     quantidade: String(c.quantidade ?? 1), dias: numeroParaCampo(c.dias_semana),
     intervalos: c.intervalos.length > 0 ? c.intervalos.map(([inicio, fim]) => ({ inicio, fim })) : [{ inicio: '', fim: '' }],
   }
@@ -44,7 +47,9 @@ export function cargaDoForm(f: FormCarga, atendimentoId: string, anterior?: Carg
   const erro = (campo: string, mensagem: string) => problemas.push({ nivel: 'erro', campo, mensagem })
 
   let potencia = numeroDigitado(f.potencia)
-  if (Number.isNaN(potencia)) { erro('potencia_w', `Potência (em watts): ${DICA_NUMERO}`); potencia = null }
+  if (Number.isNaN(potencia)) { erro('potencia_w', `Potência: ${DICA_NUMERO}`); potencia = null }
+  const unidade: UnidadePotencia = f.unidade === 'cv' ? 'cv' : 'W'
+  if (potencia !== null && unidade === 'cv') potencia = Math.round(potencia * W_POR_CV * 10) / 10
   let quantidade = numeroDigitado(f.quantidade)
   if (quantidade === null) quantidade = 1
   if (Number.isNaN(quantidade)) { erro('quantidade', 'Quantidade: digite um número inteiro.'); quantidade = 1 }
@@ -62,12 +67,12 @@ export function cargaDoForm(f: FormCarga, atendimentoId: string, anterior?: Carg
   const carga: CargaParaSalvar = {
     id: f.id, ordem: f.ordem, atendimento_id: atendimentoId,
     tipo: anterior?.tipo ?? null, descricao: texto(f.nome), local: anterior?.local ?? null,
-    potencia_w: potencia, potencia_origem: anterior?.potencia_origem ?? 'informada', quantidade: quantidade as number,
+    potencia_w: potencia, potencia_unidade: unidade, potencia_origem: anterior?.potencia_origem ?? 'informada', quantidade: quantidade as number,
     em_uso: anterior?.em_uso ?? true, dias_semana: dias, dias_mes: anterior?.dias_mes ?? null, intervalos,
     uso_final: anterior?.uso_final ?? null, fotos: f.fotos,
   }
   const comoJson: CargaJson = {
-    id: '', tipo: carga.tipo, descricao: carga.descricao, local: carga.local, potencia_w: carga.potencia_w,
+    id: '', tipo: carga.tipo, descricao: carga.descricao, local: carga.local, potencia_w: carga.potencia_w, potencia_informada: null,
     potencia_origem: carga.potencia_origem, quantidade: carga.quantidade, em_uso: carga.em_uso,
     uso: { dias_semana: carga.dias_semana, dias_mes: carga.dias_mes, intervalos }, uso_final: carga.uso_final, fotos: carga.fotos,
   }

@@ -47,6 +47,9 @@ export const OUTROS_INSUMOS = [
 ] as const
 
 export type PeriodoMedicao = 'dia' | 'semana' | 'mes'
+export type UnidadePotencia = 'W' | 'cv'
+/** 1 cv em watts. */
+export const W_POR_CV = 735.5
 export type OrigemPotencia = 'placa' | 'informada' | 'estimada'
 
 /** Limites de texto impostos pelas colunas do relatório. */
@@ -122,6 +125,8 @@ export interface CargaJson {
   local: string | null
   /** null = a skill lê a placa na foto ou estima pela categoria. */
   potencia_w: number | null
+  /** Como o consultor informou (ex.: "5 cv"), quando foi em cv; potencia_w já vem convertida. */
+  potencia_informada: string | null
   potencia_origem: OrigemPotencia
   quantidade: number
   em_uso: boolean
