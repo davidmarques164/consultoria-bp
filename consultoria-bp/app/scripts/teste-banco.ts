@@ -139,6 +139,12 @@ async function main() {
   assert.deepEqual([lida.potencia_w, lida.potencia_unidade, lida.fotos], [3677.5, 'cv', []])
   assert.deepEqual([formDaCarga(lida).potencia, formDaCarga(lida).unidade], ['5', 'cv'])
   await excluirCarga(lida.id)
+  // uso pontual grava e volta
+  const pont = cargaDoForm({ ...formCargaVazio(), id: novoId(), nome: 'Solda', dias: '5', modo: 'pontual', horasDia: '2' }, atendimentoId)
+  await salvarCarga(pont.carga)
+  const lidaP = (await listarCargas(atendimentoId)).find((c) => c.descricao === 'Solda')!
+  assert.deepEqual([lidaP.modo_uso, lidaP.horas_dia], ['pontual', 2])
+  await excluirCarga(lidaP.id)
 
   // ── remoção ───────────────────────────────────────────────────────────────
   await excluirCarga(cargas[0].id)

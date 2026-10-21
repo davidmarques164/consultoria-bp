@@ -29,7 +29,7 @@ const atendimento: AtendimentoFaseA = {
   data_aceitacao: '15/09/2026', data_execucao: null, data_encerramento: '', cidade_dr: 'Fortaleza', estado_dr: 'CE', nome_uo: null,
   sistemas_nao_aplicaveis: ['A7', 'A8'],
 }
-const base = { atendimento_id: 'a1', potencia_unidade: 'W' as const, potencia_origem: 'informada' as const, em_uso: true, dias_mes: null, uso_final: null, fotos: [] as string[] }
+const base = { atendimento_id: 'a1', modo_uso: 'horario' as const, horas_dia: null, potencia_unidade: 'W' as const, potencia_origem: 'informada' as const, em_uso: true, dias_mes: null, uso_final: null, fotos: [] as string[] }
 const cargas: Carga[] = [
   { ...base, id: 'uuid-ac-corte', ordem: 1, tipo: 'Ar-condicionado', descricao: 'AC sala de corte', local: 'Sala de corte', potencia_w: 1000, quantidade: 1,
     dias_semana: null, dias_mes: 3, intervalos: [['08:00', '21:00']], uso_final: 'Ar-condicionado', fotos: ['file:///fotos/IMG_0049.JPG'] },
@@ -95,7 +95,7 @@ assert.equal(json.sistemas.length, SISTEMAS.length)
 assert.deepEqual(json.sistemas.filter((s) => s.aplicavel === false).map((s) => s.aba), ['A7', 'A8'])
 assert.deepEqual(json.sistemas.filter((s) => s.aplicavel === true).map((s) => s.aba), ['A10'])
 assert.equal(json.sistemas.find((s) => s.aba === 'A5')?.aplicavel, null, 'aba não avaliada')
-assert.deepEqual(json.cargas[0].uso, { dias_semana: null, dias_mes: 3, intervalos: [['08:00', '21:00']] })
+assert.deepEqual(json.cargas[0].uso, { modo: 'horario', horas_dia: null, dias_semana: null, dias_mes: 3, intervalos: [['08:00', '21:00']] })
 assert.equal(json.cargas[2].uso, null, 'carga sem uso não leva horário')
 assert.deepEqual(json.cargas[0].fotos, ['cargas/c01.jpg'])
 const it = json.intervencoes[0]
@@ -147,7 +147,7 @@ assert.ok(alertas(validarCarga(json.cargas[3])).some((m) => /Tempo de uso em bra
 // o que continua sendo erro: valor digitado inválido, ou carga sem foto e sem nome
 assert.ok(erros(validarCarga({ ...json.cargas[1], potencia_w: NaN })) > 0, 'potência sem número')
 assert.ok(erros(validarCarga({ ...json.cargas[3], fotos: [] })) > 0, 'sem foto e sem nome não há o que a skill ler')
-assert.ok(erros(validarCarga({ ...json.cargas[1], uso: { dias_semana: 5, dias_mes: null, intervalos: [['17:00', '08:00']] } })) > 0, 'término antes do início')
+assert.ok(erros(validarCarga({ ...json.cargas[1], uso: { modo: 'horario', horas_dia: null, dias_semana: 5, dias_mes: null, intervalos: [['17:00', '08:00']] } })) > 0, 'término antes do início')
 
 assert.deepEqual(validarIntervencao(it, json.cargas, 41), [], 'caso correto: sem erro e sem alerta')
 // vírgula no lugar errado: 115,1 kWh num dia para um aparelho de 1.000 W
@@ -203,7 +203,7 @@ assert.deepEqual(
   { d: soFoto.carga.descricao, p: soFoto.carga.potencia_w, q: soFoto.carga.quantidade, i: soFoto.carga.intervalos, t: soFoto.carga.tipo },
   { d: null, p: null, q: 1, i: [], t: null })
 // A4: tudo preenchido, com horário digitado de forma livre
-const cheia = cargaDoForm({ fotos: [], nome: ' Split 12.000 BTU ', potencia: '1100', unidade: 'W', quantidade: '2', dias: '5',
+const cheia = cargaDoForm({ fotos: [], nome: ' Split 12.000 BTU ', potencia: '1100', unidade: 'W', modo: 'horario', horasDia: '', quantidade: '2', dias: '5',
   intervalos: [{ inicio: '8', fim: '12h' }, { inicio: '13:30', fim: '17' }] }, 'a1')
 assert.equal(erros(cheia.problemas), 0)
 assert.deepEqual(
@@ -223,6 +223,30 @@ const jsonCv = montarAtendimento({ ...dados, cargas: [{ ...emCv.carga, id: 'x', 
 assert.deepEqual([jsonCv.cargas[0].potencia_w, jsonCv.cargas[0].potencia_informada], [3677.5, '5 cv'])
 assert.equal(json.cargas[0].potencia_informada, null, 'em watts não repete')
 assert.match(atendimentoParaMarkdown(jsonCv), /3\.677,5 = 5 cv/)
+// horário digitado só com a hora: 17 é entendido como 17:00, 1730 como 17:30
+const soHora = cargaDoForm({ ...formCargaVazio(), nome: 'Prensa', dias: '5', intervalos: [{ inicio: '7', fim: '17' }, { inicio: '1730', fim: '22' }] }, 'a1')
+assert.equal(erros(soHora.problemas), 0)
+assert.deepEqual(soHora.carga.intervalos, [['07:00', '17:00'], ['17:30', '22:00']])
+// uso pontual: só horas por dia (portão, solda)
+const pontual = cargaDoForm({ ...formCargaVazio(), nome: 'Portão', potencia: '0,5', unidade: 'cv', dias: '6', modo: 'pontual', horasDia: '1,5' }, 'a1')
+assert.equal(erros(pontual.problemas), 0)
+assert.deepEqual([pontual.carga.modo_uso, pontual.carga.horas_dia, pontual.carga.intervalos], ['pontual', 1.5, []])
+assert.ok(!alertas(pontual.problemas).some((m) => /Tempo de uso em branco/.test(m)), 'uso pontual com horas não é tempo em branco')
+assert.ok(erros(cargaDoForm({ ...formCargaVazio(), nome: 'x', modo: 'pontual', horasDia: '30' }, 'a1').problemas) > 0, 'mais de 24 h por dia')
+// 24 h: vira o dia inteiro
+const dia = cargaDoForm({ ...formCargaVazio(), nome: 'Câmara fria', dias: '7', modo: '24h', intervalos: [{ inicio: '8', fim: '9' }] }, 'a1')
+assert.deepEqual([dia.carga.modo_uso, dia.carga.intervalos], ['24h', [['00:00', '23:59']]])
+const jsonUso = montarAtendimento({ ...dados, cargas: [{ ...pontual.carga, id: 'p', ordem: 1 }, { ...dia.carga, id: 'd', ordem: 2 }] }).json
+assert.deepEqual(jsonUso.cargas.map((c) => [c.uso?.modo, c.uso?.horas_dia]), [['pontual', 1.5], ['24h', null]])
+const mdUso = atendimentoParaMarkdown(jsonUso)
+assert.match(mdUso, /uso pontual, 1,5 h\/dia, 6 dias\/semana/)
+assert.match(mdUso, /24 h por dia, 7 dias\/semana/)
+// ida e volta na tela
+assert.deepEqual([formDaCarga({ ...pontual.carga, id: 'p', ordem: 1 }).modo, formDaCarga({ ...pontual.carga, id: 'p', ordem: 1 }).horasDia], ['pontual', '1,5'])
+// sem nada no tempo de uso: segue em branco para a skill perguntar
+assert.equal(cargaDoForm({ ...formCargaVazio(), nome: 'Torno' }, 'a1').carga.horas_dia, null)
+assert.equal(montarAtendimento({ ...dados, cargas: [{ ...cargaDoForm({ ...formCargaVazio(), nome: 'Torno' }, 'a1').carga, id: 't', ordem: 1 }] }).json.cargas[0].uso, null)
+
 // só o nome, sem foto: é uma carga válida
 assert.equal(erros(cargaDoForm({ ...formCargaVazio(), nome: 'Compressor' }, 'a1').problemas), 0)
 

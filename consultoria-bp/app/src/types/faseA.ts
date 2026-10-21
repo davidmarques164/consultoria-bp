@@ -1,5 +1,5 @@
 /** Registros da fase A como ficam no SQLite (ids uuid, fotos como caminhos locais do aparelho). */
-import { OrigemPotencia, UnidadePotencia, PeriodoMedicao, Sistema, TipoCarga, TipoTarifario } from './atendimentoJson'
+import { ModoUso, OrigemPotencia, UnidadePotencia, PeriodoMedicao, Sistema, TipoCarga, TipoTarifario } from './atendimentoJson'
 
 export interface Carga {
   id: string
@@ -17,6 +17,9 @@ export interface Carga {
   dias_semana: number | null
   dias_mes: number | null
   intervalos: [string, string][]
+  modo_uso: ModoUso
+  /** Horas por dia no uso pontual. */
+  horas_dia: number | null
   uso_final: string | null
   fotos: string[]
 }

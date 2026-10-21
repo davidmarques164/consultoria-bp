@@ -3,7 +3,7 @@
  * encontrados. Funções puras, para poderem ser testadas fora do aparelho.
  */
 import { ConfigSistema } from '../constants/sistemas'
-import { CargaJson, IntervencaoJson, PeriodoMedicao, UnidadePotencia, W_POR_CV } from '../types/atendimentoJson'
+import { CargaJson, IntervencaoJson, ModoUso, PeriodoMedicao, UnidadePotencia, W_POR_CV } from '../types/atendimentoJson'
 import { Carga, Intervencao } from '../types/faseA'
 import { DICA_NUMERO, horaDigitada, numeroDigitado, numeroParaCampo } from './entrada'
 import { Problema, validarCarga, validarIntervencao } from './validacoes'
@@ -23,22 +23,27 @@ export interface FormCarga {
   quantidade: string
   dias: string
   intervalos: { inicio: string; fim: string }[]
+  /** horario (liga/desliga), pontual (só horas por dia) ou 24h. */
+  modo: ModoUso
+  /** Horas por dia no uso pontual. */
+  horasDia: string
 }
 
-export const formCargaVazio = (): FormCarga => ({ fotos: [], nome: '', potencia: '', unidade: 'W', quantidade: '1', dias: '', intervalos: [{ inicio: '', fim: '' }] })
+export const formCargaVazio = (): FormCarga => ({ fotos: [], nome: '', potencia: '', unidade: 'W', quantidade: '1', dias: '', intervalos: [{ inicio: '', fim: '' }], modo: 'horario', horasDia: '' })
 
 export function formDaCarga(c: Carga): FormCarga {
   return {
     id: c.id, ordem: c.ordem, fotos: c.fotos, nome: c.descricao ?? '', unidade: c.potencia_unidade ?? 'W',
     potencia: numeroParaCampo(c.potencia_w === null ? null : c.potencia_unidade === 'cv' ? Math.round((c.potencia_w / W_POR_CV) * 1000) / 1000 : c.potencia_w),
     quantidade: String(c.quantidade ?? 1), dias: numeroParaCampo(c.dias_semana),
-    intervalos: c.intervalos.length > 0 ? c.intervalos.map(([inicio, fim]) => ({ inicio, fim })) : [{ inicio: '', fim: '' }],
+    intervalos: c.modo_uso !== '24h' && c.intervalos.length > 0 ? c.intervalos.map(([inicio, fim]) => ({ inicio, fim })) : [{ inicio: '', fim: '' }],
+    modo: c.modo_uso ?? 'horario', horasDia: numeroParaCampo(c.horas_dia),
   }
 }
 
 /** Nada foi preenchido: o cartão é ignorado ao salvar. */
 export const formCargaEmBranco = (f: FormCarga): boolean =>
-  f.fotos.length === 0 && !f.nome.trim() && !f.potencia.trim() && !f.dias.trim() && f.intervalos.every((i) => !i.inicio.trim() && !i.fim.trim())
+  f.fotos.length === 0 && !f.nome.trim() && !f.potencia.trim() && !f.dias.trim() && !(f.horasDia ?? '').trim() && (f.modo ?? 'horario') === 'horario' && f.intervalos.every((i) => !i.inicio.trim() && !i.fim.trim())
 
 export type CargaParaSalvar = Omit<Carga, 'id' | 'ordem'> & { id?: string; ordem?: number }
 
@@ -56,8 +61,16 @@ export function cargaDoForm(f: FormCarga, atendimentoId: string, anterior?: Carg
   let dias = numeroDigitado(f.dias)
   if (Number.isNaN(dias)) { erro('uso', 'Dias por semana: digite um número de 1 a 7.'); dias = null }
 
+  const modo: ModoUso = f.modo === 'pontual' || f.modo === '24h' ? f.modo : 'horario'
+  let horasDia: number | null = null
+  if (modo === 'pontual') {
+    horasDia = numeroDigitado(f.horasDia)
+    if (Number.isNaN(horasDia)) { erro('uso', `Horas por dia: ${DICA_NUMERO}`); horasDia = null }
+  }
   const intervalos: [string, string][] = []
-  for (const i of f.intervalos) {
+  // 24 h vira o intervalo 00:00–23:59 (como a planilha registra o dia inteiro); uso pontual não tem horários
+  if (modo === '24h') intervalos.push(['00:00', '23:59'])
+  for (const i of modo === 'horario' ? f.intervalos : []) {
     if (!i.inicio.trim() && !i.fim.trim()) continue
     const a = horaDigitada(i.inicio), b = horaDigitada(i.fim)
     if (a === null || b === null) erro('uso', `Horário "${i.inicio || '?'} às ${i.fim || '?'}": informe início e fim, como 8 e 17 ou 07:30 e 12:00.`)
@@ -68,13 +81,13 @@ export function cargaDoForm(f: FormCarga, atendimentoId: string, anterior?: Carg
     id: f.id, ordem: f.ordem, atendimento_id: atendimentoId,
     tipo: anterior?.tipo ?? null, descricao: texto(f.nome), local: anterior?.local ?? null,
     potencia_w: potencia, potencia_unidade: unidade, potencia_origem: anterior?.potencia_origem ?? 'informada', quantidade: quantidade as number,
-    em_uso: anterior?.em_uso ?? true, dias_semana: dias, dias_mes: anterior?.dias_mes ?? null, intervalos,
+    em_uso: anterior?.em_uso ?? true, dias_semana: dias, dias_mes: anterior?.dias_mes ?? null, intervalos, modo_uso: modo, horas_dia: horasDia,
     uso_final: anterior?.uso_final ?? null, fotos: f.fotos,
   }
   const comoJson: CargaJson = {
     id: '', tipo: carga.tipo, descricao: carga.descricao, local: carga.local, potencia_w: carga.potencia_w, potencia_informada: null,
     potencia_origem: carga.potencia_origem, quantidade: carga.quantidade, em_uso: carga.em_uso,
-    uso: { dias_semana: carga.dias_semana, dias_mes: carga.dias_mes, intervalos }, uso_final: carga.uso_final, fotos: carga.fotos,
+    uso: { modo, horas_dia: horasDia, dias_semana: carga.dias_semana, dias_mes: carga.dias_mes, intervalos }, uso_final: carga.uso_final, fotos: carga.fotos,
   }
   problemas.push(...validarCarga(comoJson))
   return { carga, problemas }

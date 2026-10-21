@@ -17,6 +17,8 @@ import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { Carga } from '../../types/faseA'
 import { cargaDoForm, formCargaEmBranco, formCargaVazio, formDaCarga, FormCarga } from '../../utils/formularios'
 import { novoId } from '../../utils/id'
+import { horaDigitada } from '../../utils/entrada'
+import { ModoUso } from '../../types/atendimentoJson'
 import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
 import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 
@@ -178,14 +180,26 @@ export default function A4_LevantamentoCargasScreen() {
 
               <Text style={styles.sub}>Tempo de uso</Text>
               <Campo rotulo="Dias por semana" valor={c.dias} onChange={(v) => alterar(c.chave, { dias: v })} num placeholder="1 a 7" />
-              {c.intervalos.map((iv, k) => (
+              <View style={styles.modos}>
+                {MODOS.map((m) => (
+                  <TouchableOpacity key={m.valor} style={[styles.modo, c.modo === m.valor && styles.modoAtivo]} onPress={() => alterar(c.chave, { modo: m.valor })}>
+                    <Text style={[styles.modoTexto, c.modo === m.valor && styles.modoTextoAtivo]}>{m.rotulo}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {c.modo === 'pontual' && (
+                <Campo rotulo="Horas de uso por dia" valor={c.horasDia} onChange={(v) => alterar(c.chave, { horasDia: v })} num placeholder="Ex.: 1,5" />
+              )}
+              {c.modo === '24h' && <Text style={styles.dica}>Ligada o dia todo (00:00 às 23:59).</Text>}
+              {c.modo === 'horario' && <Text style={styles.dica}>Digite só a hora: 17 = 17:00; 1730 = 17:30.</Text>}
+              {c.modo === 'horario' && c.intervalos.map((iv, k) => (
                 <View key={k} style={styles.row}>
                   <View style={{ flex: 1 }}>
-                    <Campo rotulo="Liga às" valor={iv.inicio} placeholder="08:00"
+                    <Campo rotulo="Liga às" valor={iv.inicio} placeholder="08:00" hora
                       onChange={(v) => alterar(c.chave, { intervalos: c.intervalos.map((x, j) => (j === k ? { ...x, inicio: v } : x)) })} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Campo rotulo="Desliga às" valor={iv.fim} placeholder="17:00"
+                    <Campo rotulo="Desliga às" valor={iv.fim} placeholder="17:00" hora
                       onChange={(v) => alterar(c.chave, { intervalos: c.intervalos.map((x, j) => (j === k ? { ...x, fim: v } : x)) })} />
                   </View>
                   {c.intervalos.length > 1 && (
@@ -195,9 +209,11 @@ export default function A4_LevantamentoCargasScreen() {
                   )}
                 </View>
               ))}
-              <TouchableOpacity onPress={() => alterar(c.chave, { intervalos: [...c.intervalos, { inicio: '', fim: '' }] })}>
-                <Text style={styles.link}>+ outro horário (uso com pausa ou que passa da meia-noite)</Text>
-              </TouchableOpacity>
+              {c.modo === 'horario' && (
+                <TouchableOpacity onPress={() => alterar(c.chave, { intervalos: [...c.intervalos, { inicio: '', fim: '' }] })}>
+                  <Text style={styles.link}>+ outro horário (uso com pausa ou que passa da meia-noite)</Text>
+                </TouchableOpacity>
+              )}
 
               {problemas.map((p, k) => (
                 <Text key={k} style={p.nivel === 'erro' ? styles.erro : styles.alerta}>{p.nivel === 'erro' ? '✕ ' : '• '}{p.mensagem}</Text>
@@ -217,11 +233,17 @@ export default function A4_LevantamentoCargasScreen() {
   )
 }
 
-function Campo({ rotulo, valor, onChange, num, placeholder }: { rotulo: string; valor: string; onChange: (v: string) => void; num?: boolean; placeholder?: string }) {
+const MODOS: { valor: ModoUso; rotulo: string }[] = [
+  { valor: 'horario', rotulo: 'Horário' }, { valor: 'pontual', rotulo: 'Uso pontual' }, { valor: '24h', rotulo: '24 h' },
+]
+
+function Campo({ rotulo, valor, onChange, num, hora, placeholder }: { rotulo: string; valor: string; onChange: (v: string) => void; num?: boolean; hora?: boolean; placeholder?: string }) {
+  // campo de horário: ao sair do campo, "17" vira "17:00" e "1730" vira "17:30"; o que não for hora fica como está
+  const aoSair = () => { if (hora) { const h = horaDigitada(valor); if (h && h !== valor) onChange(h) } }
   return (
     <View style={{ marginBottom: 8 }}>
       <Text style={fs.label}>{rotulo}</Text>
-      <TextInput value={valor} onChangeText={onChange} keyboardType={num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} placeholder={placeholder} />
+      <TextInput value={valor} onChangeText={onChange} onEndEditing={aoSair} keyboardType={hora ? 'number-pad' : num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} placeholder={placeholder} />
     </View>
   )
 }
@@ -239,6 +261,12 @@ const styles = StyleSheet.create({
   remove: { color: Colors.danger, fontSize: 20, fontWeight: '700' },
   row: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
   menos: { width: 48, minHeight: 52, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  modos: { flexDirection: 'row', gap: 6, marginBottom: 8, flexWrap: 'wrap' },
+  modo: { borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: Colors.white },
+  modoAtivo: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  modoTexto: { fontSize: 14, fontWeight: '600', color: Colors.gray },
+  modoTextoAtivo: { color: Colors.primaryDark },
+  dica: { fontSize: 13, color: Colors.gray, marginBottom: 8 },
   unidades: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   unidade: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, minHeight: 48, minWidth: 56, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 14, backgroundColor: Colors.white },
   unidadeAtiva: { borderColor: Colors.primary, borderWidth: 3, backgroundColor: Colors.primaryLight },

@@ -1,14 +1,15 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { View, FlatList, StyleSheet, TouchableOpacity, Text } from 'react-native'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import { AppStackParamList } from '../../navigation/types'
 import { useEmpresaStore } from '../../store/empresaStore'
 import { useAuthStore } from '../../store/authStore'
-import { listEmpresas } from '../../db/operations'
+import { listEmpresas, statusModulosPorEmpresa } from '../../db/operations'
 import EmpresaCard from '../../components/empresa/EmpresaCard'
 import EmptyState from '../../components/common/EmptyState'
 import { Colors } from '../../constants/colors'
+import { CHAVES_MODULOS, contarConcluidos } from '../../constants/modulos'
 
 type Nav = StackNavigationProp<AppStackParamList>
 
@@ -16,11 +17,14 @@ export default function EmpresasEmAtendimentoScreen() {
   const navigation = useNavigation<Nav>()
   const consultor = useAuthStore((s) => s.consultor)
   const { empresas, setEmpresas } = useEmpresaStore()
+  const [status, setStatus] = useState<Record<string, Record<string, boolean>>>({})
 
   useFocusEffect(
     useCallback(() => {
       if (!consultor) return
       listEmpresas(consultor.email).then(setEmpresas)
+      // barra de progresso: lida de novo sempre que a lista aparece, para refletir o que foi preenchido
+      statusModulosPorEmpresa(consultor.email).then(setStatus).catch(() => {})
     }, [consultor, setEmpresas])
   )
 
@@ -37,6 +41,8 @@ export default function EmpresasEmAtendimentoScreen() {
         renderItem={({ item }) => (
           <EmpresaCard
             empresa={item}
+            modulosTotal={CHAVES_MODULOS.length}
+            modulosConcluidos={contarConcluidos(status[item.id])}
             onPress={() => navigation.navigate('DetalhesEmpresa', { empresaId: item.id })}
           />
         )}

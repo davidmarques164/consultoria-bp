@@ -103,13 +103,13 @@ export function montarAtendimento(d: DadosParaExportar, agora: Date = new Date()
     const fotos = c.fotos
       .map((f, k) => anexar(f, `cargas/${id}${c.fotos.length > 1 ? `_${k + 1}` : ''}.${extensao(f, 'jpg')}`))
       .filter((x): x is string => x !== null)
-    const temUso = c.em_uso && (c.intervalos.length > 0 || c.dias_semana !== null || c.dias_mes !== null)
+    const temUso = c.em_uso && (c.intervalos.length > 0 || c.dias_semana !== null || c.dias_mes !== null || c.horas_dia !== null || c.modo_uso !== 'horario')
     return {
       id, tipo: c.tipo ?? null, descricao: txt(c.descricao), local: txt(c.local),
       potencia_w: num(c.potencia_w), potencia_origem: c.potencia_origem,
       potencia_informada: c.potencia_unidade === 'cv' && num(c.potencia_w) !== null
         ? `${String(Math.round(((c.potencia_w as number) / W_POR_CV) * 1000) / 1000).replace('.', ',')} cv` : null, quantidade: c.quantidade, em_uso: c.em_uso,
-      uso: temUso ? { dias_semana: num(c.dias_semana), dias_mes: num(c.dias_mes), intervalos: c.intervalos } : null,
+      uso: temUso ? { modo: c.modo_uso ?? 'horario', horas_dia: num(c.horas_dia), dias_semana: num(c.dias_semana), dias_mes: num(c.dias_mes), intervalos: c.intervalos } : null,
       uso_final: txt(c.uso_final), fotos,
     }
   })
@@ -222,7 +222,9 @@ export function atendimentoParaMarkdown(j: AtendimentoJson): string {
     for (const c of j.cargas) {
       let uso = 'sem uso'
       if (c.em_uso) {
-        const horario = c.uso?.intervalos.map(([a, b]) => `${a}–${b}`).join(' e ') ?? ''
+        const horario = c.uso?.modo === '24h' ? '24 h por dia'
+          : c.uso?.modo === 'pontual' ? (c.uso.horas_dia !== null ? `uso pontual, ${nBR(c.uso.horas_dia)} h/dia` : 'uso pontual')
+          : c.uso?.intervalos.map(([a, b]) => `${a}–${b}`).join(' e ') ?? ''
         const dias = c.uso?.dias_mes !== null && c.uso?.dias_mes !== undefined ? `${c.uso.dias_mes} dias/mês`
           : c.uso?.dias_semana !== null && c.uso?.dias_semana !== undefined ? `${c.uso.dias_semana} dias/semana` : ''
         uso = [horario, dias].filter(Boolean).join(', ') || 'não informado'

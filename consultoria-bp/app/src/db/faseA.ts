@@ -80,7 +80,9 @@ function linhaParaCarga(r: any): Carga {
     descricao: textoOuNulo(r.descricao), local: r.local ?? null, potencia_w: numeroOuNulo(r.potencia_w), potencia_unidade: r.potencia_unidade === 'cv' ? 'cv' : 'W',
     potencia_origem: r.potencia_origem ?? 'informada',
     quantidade: r.quantidade ?? 1, em_uso: r.em_uso !== 0, dias_semana: r.dias_semana ?? null, dias_mes: r.dias_mes ?? null,
-    intervalos: lista<[string, string][]>(r.intervalos, []), uso_final: r.uso_final ?? null, fotos: lista<string[]>(r.fotos, []),
+    intervalos: lista<[string, string][]>(r.intervalos, []),
+    modo_uso: r.modo_uso === 'pontual' || r.modo_uso === '24h' ? r.modo_uso : 'horario', horas_dia: r.horas_dia ?? null,
+    uso_final: r.uso_final ?? null, fotos: lista<string[]>(r.fotos, []),
   }
 }
 
@@ -102,14 +104,14 @@ export async function salvarCarga(c: Omit<Carga, 'id' | 'ordem'> & { id?: string
   }
   await db.runAsync(
     `INSERT INTO cargas (id,atendimento_id,ordem,tipo,descricao,local,potencia_w,potencia_unidade,potencia_origem,quantidade,em_uso,
-       dias_semana,dias_mes,intervalos,uso_final,fotos,created_at,updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       dias_semana,dias_mes,intervalos,modo_uso,horas_dia,uso_final,fotos,created_at,updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET tipo=excluded.tipo, descricao=excluded.descricao, local=excluded.local,
        potencia_w=excluded.potencia_w, potencia_unidade=excluded.potencia_unidade, potencia_origem=excluded.potencia_origem, quantidade=excluded.quantidade,
        em_uso=excluded.em_uso, dias_semana=excluded.dias_semana, dias_mes=excluded.dias_mes,
-       intervalos=excluded.intervalos, uso_final=excluded.uso_final, fotos=excluded.fotos, updated_at=excluded.updated_at`,
+       intervalos=excluded.intervalos, modo_uso=excluded.modo_uso, horas_dia=excluded.horas_dia, uso_final=excluded.uso_final, fotos=excluded.fotos, updated_at=excluded.updated_at`,
     [id, c.atendimento_id, ordem, c.tipo ?? '', c.descricao ?? '', c.local ?? null, c.potencia_w ?? 0, c.potencia_unidade ?? 'W', c.potencia_origem, c.quantidade,
-     c.em_uso ? 1 : 0, c.dias_semana ?? null, c.dias_mes ?? null, JSON.stringify(c.intervalos ?? []), c.uso_final ?? null,
+     c.em_uso ? 1 : 0, c.dias_semana ?? null, c.dias_mes ?? null, JSON.stringify(c.intervalos ?? []), c.modo_uso ?? 'horario', c.horas_dia ?? null, c.uso_final ?? null,
      JSON.stringify(c.fotos ?? []), t, t]
   )
   await marcarInicio(c.atendimento_id)

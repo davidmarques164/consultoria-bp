@@ -4,11 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Image,
   Alert,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import { AppStackParamList } from '../../navigation/types'
 import { useAuthStore } from '../../store/authStore'
@@ -22,6 +22,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<Nav>()
   const consultor = useAuthStore((s) => s.consultor)
   const clearConsultor = useAuthStore((s) => s.clearConsultor)
+  const insets = useSafeAreaInsets()
 
   const handleLogout = () => {
     Alert.alert('Sair', 'Deseja encerrar a sessão?', [
@@ -38,9 +39,9 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
+    <View style={styles.safe}>
+      {/* Header: começa abaixo da barra de status do celular */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.consultorInfo}>
           {consultor?.foto ? (
             <Image source={{ uri: consultor.foto }} style={styles.avatar} />
@@ -49,9 +50,9 @@ export default function HomeScreen() {
               <Text style={styles.avatarLetter}>{consultor?.nome?.[0] ?? 'C'}</Text>
             </View>
           )}
-          <View>
-            <Text style={styles.consultorNome}>{consultor?.nome ?? 'Consultor'}</Text>
-            <Text style={styles.consultorSub}>Consultoria em Eficiência Energética</Text>
+          <View style={styles.consultorTexto}>
+            <Text style={styles.consultorNome} numberOfLines={1}>{consultor?.nome ?? 'Consultor'}</Text>
+            <Text style={styles.consultorSub} numberOfLines={1}>Consultoria em Eficiência Energética</Text>
           </View>
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
@@ -86,7 +87,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <Text style={styles.versao}>Versão {VERSAO_APP}</Text>
       </View>
-    </SafeAreaView>
+    </View>
   )
 }
 
@@ -104,13 +105,15 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.grayLight },
   header: {
     backgroundColor: Colors.primary,
-    padding: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
-  consultorInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  consultorInfo: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  consultorTexto: { flex: 1, minWidth: 0 },
   avatar: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: Colors.white },
   avatarPlaceholder: {
     width: 46,
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
   avatarLetter: { fontSize: 20, fontWeight: '700', color: Colors.white },
   consultorNome: { fontSize: 17, fontWeight: '700', color: Colors.white },
   consultorSub: { fontSize: 14, color: Colors.white },
-  logoutBtn: { minHeight: 48, minWidth: 64, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.white, borderRadius: 10 },
+  logoutBtn: { flexShrink: 0, minHeight: 44, minWidth: 56, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.white, borderRadius: 10 },
   logoutText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
   body: { flex: 1, padding: 24, justifyContent: 'center', gap: 16 },
   welcome: { fontSize: 26, fontWeight: '800', color: Colors.black, textAlign: 'center', marginBottom: 4 },

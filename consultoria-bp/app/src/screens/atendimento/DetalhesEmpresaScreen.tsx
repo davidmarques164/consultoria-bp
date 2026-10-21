@@ -239,12 +239,15 @@ export default function DetalhesEmpresaScreen() {
 
 function ModuloCard({ modulo, concluido, onPress }: { modulo: Modulo; concluido: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity style={[styles.moduloCard, concluido && styles.moduloConcluido]} onPress={onPress} activeOpacity={0.85}>
-      <Text style={styles.moduloIcon}>{modulo.icon}</Text>
-      <Text style={styles.moduloKey}>{modulo.key}</Text>
-      <Text style={styles.moduloLabel} numberOfLines={2}>{modulo.label}</Text>
-      {concluido && <Text style={styles.check}>✓</Text>}
-    </TouchableOpacity>
+    // cada cartão ocupa uma célula de 1/3 da largura: a última linha fica alinhada à esquerda, sem buracos
+    <View style={styles.celula}>
+      <TouchableOpacity style={[styles.moduloCard, concluido && styles.moduloConcluido]} onPress={onPress} activeOpacity={0.85}>
+        <Text style={styles.moduloIcon}>{modulo.icon}</Text>
+        <Text style={styles.moduloKey}>{modulo.key}</Text>
+        <Text style={styles.moduloLabel} numberOfLines={2}>{modulo.label}</Text>
+        {concluido && <Text style={styles.check}>✓</Text>}
+      </TouchableOpacity>
+    </View>
   )
 }
 
@@ -279,10 +282,10 @@ const styles = StyleSheet.create({
   progressTrack: { flex: 1, height: 10, backgroundColor: Colors.grayLight, borderWidth: 1, borderColor: Colors.grayMid, borderRadius: 5, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: Colors.brandGreen },
   progressText: { fontSize: 15, fontWeight: '700', color: Colors.black, fontVariant: ['tabular-nums'] },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 8 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginBottom: 8 },
+  celula: { width: '33.333%', padding: 4 },
   moduloCard: {
-    width: '31.5%',
-    minHeight: 96,
+    flex: 1,
     backgroundColor: Colors.white,
     borderRadius: 10,
     padding: 10,
@@ -296,8 +299,8 @@ const styles = StyleSheet.create({
   },
   moduloConcluido: { borderColor: Colors.primary, borderWidth: 3, backgroundColor: Colors.primaryLight },
   moduloIcon: { fontSize: 22, marginBottom: 4 },
-  moduloKey: { fontSize: 16, fontWeight: '700', color: Colors.blue, marginBottom: 2 },
-  moduloLabel: { fontSize: 14, color: Colors.gray, textAlign: 'center', lineHeight: 18 },
+  moduloKey: { fontSize: 12, fontWeight: '700', color: Colors.blue, marginBottom: 2 },
+  moduloLabel: { fontSize: 10, color: Colors.gray, textAlign: 'center', lineHeight: 14 },
   check: { fontSize: 14, color: Colors.primary, fontWeight: '700', marginTop: 2 },
   actionBtn: {
     flexDirection: 'row',

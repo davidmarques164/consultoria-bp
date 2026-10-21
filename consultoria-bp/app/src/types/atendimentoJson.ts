@@ -107,7 +107,18 @@ export interface EnergiaJson {
   outros_insumos_arquivos: { insumo: string; arquivo: string }[]
 }
 
+/**
+ * Como a carga é usada no dia:
+ * - 'horario': liga e desliga em horários definidos (intervalos);
+ * - 'pontual': uso esporádico, só a quantidade de horas por dia (portão, solda...);
+ * - '24h': ligada o dia todo (intervalo 00:00–23:59).
+ */
+export type ModoUso = 'horario' | 'pontual' | '24h'
+
 export interface UsoCargaJson {
+  modo: ModoUso
+  /** Horas de uso por dia, quando o modo é 'pontual'. */
+  horas_dia: number | null
   /** Dias por semana em que a carga funciona (uso regular). */
   dias_semana: number | null
   /** Dias por mês, quando o uso não é semanal (uso esporádico). */

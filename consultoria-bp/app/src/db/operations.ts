@@ -46,6 +46,23 @@ export async function listEmpresas(consultor_email: string): Promise<Empresa[]> 
   )
 }
 
+/** Módulos concluídos (status_modulos do atendimento mais recente) de cada empresa do consultor. */
+export async function statusModulosPorEmpresa(consultor_email: string): Promise<Record<string, Record<string, boolean>>> {
+  const db = await getDB()
+  const rows = await db.getAllAsync<{ empresa_id: string; status_modulos: string | null }>(
+    `SELECT a.empresa_id, a.status_modulos FROM atendimentos a
+       JOIN empresas e ON e.id = a.empresa_id
+      WHERE e.consultor_email = ?
+      ORDER BY a.created_at`,
+    [consultor_email]
+  )
+  const res: Record<string, Record<string, boolean>> = {}
+  for (const r of rows) {
+    try { res[r.empresa_id] = r.status_modulos ? JSON.parse(r.status_modulos) : {} } catch { res[r.empresa_id] = {} }
+  }
+  return res
+}
+
 export async function getEmpresa(id: string): Promise<Empresa | null> {
   const db = await getDB()
   return await db.getFirstAsync<Empresa>('SELECT * FROM empresas WHERE id = ?', [id])

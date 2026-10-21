@@ -61,6 +61,11 @@ exatamente como foi digitado, inclusive o que ainda está incompleto; só some q
 o item. Uma carga pode ter só o nome: a foto é apoio. A potência pode ser digitada em W ou em cv; o
 valor é guardado em watts e o `atendimento.json` informa também como foi digitado (`potencia_informada`).
 
+O tempo de uso da carga tem três modos (`uso.modo` no `atendimento.json`): `horario` (liga e desliga em
+horários; "17" é lido como 17:00 e "1730" como 17:30), `pontual` (só as horas por dia, em `uso.horas_dia`,
+para portão, solda e afins) e `24h` (intervalo 00:00–23:59). Sem nada preenchido, `uso` vai `null` e a
+skill pergunta, como antes, para o consumo das cargas bater com as faturas.
+
 ## Quando a pasta do Drive é atualizada
 
 - **No cadastro da empresa:** a pasta é criada e recebe o cartão CNPJ e o `atendimento.json`.
