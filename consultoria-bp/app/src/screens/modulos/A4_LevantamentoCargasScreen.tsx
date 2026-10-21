@@ -146,7 +146,7 @@ export default function A4_LevantamentoCargasScreen() {
   return (
     <>
       <KeyboardScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-        <AlertBanner type="info" message="Informe nome, potência (W ou cv) e tempo de uso de cada carga. A foto é opcional e serve de apoio quando não se sabe o nome ou a potência. Tudo é gravado automaticamente." />
+        <AlertBanner type="info" message="Fotografe cada carga (de preferência a placa) e informe nome, potência (W ou cv) e tempo de uso. Se enviar só a foto, o restante é preenchido depois, a partir dela." />
 
         {cartoes.map((c, i) => {
           const { problemas } = formCargaEmBranco(c) ? { problemas: [] } : cargaDoForm(c, atendimentoId)
@@ -162,7 +162,7 @@ export default function A4_LevantamentoCargasScreen() {
               <Campo rotulo="Nome da carga" valor={c.nome} onChange={(v) => alterar(c.chave, { nome: v })} placeholder="Ex.: Split 12.000 BTU" />
               <View style={styles.row}>
                 <View style={{ flex: 2 }}>
-                  <Campo rotulo={`Potência (${c.unidade})`} valor={c.potencia} onChange={(v) => alterar(c.chave, { potencia: v })} num placeholder="da placa" />
+                  <Campo rotulo={`Potência / consumo (${c.unidade})`} valor={c.potencia} onChange={(v) => alterar(c.chave, { potencia: v })} num placeholder="da placa" />
                 </View>
                 <View style={styles.unidades}>
                   {(['W', 'cv'] as const).map((u) => (
