@@ -14,6 +14,7 @@ A versão aparece no login e na tela inicial. Cada entrega muda o número em `ap
 | 1.4.2 | correcoes-141 | Bloco "Horários de funcionamento" entre A1 e A4 (dias marcados, turnos com início e fim, "+ outro horário"); A4: modo "Jornada integral"; sem textos de auxílio dentro dos campos das telas dos módulos; fontes dos cartões da 1.4.0 mantidas |
 | 1.4.3 | correcoes-141 | A4: aviso do topo só "Fotografe cada carga, de preferência a placa."; texto explicando a jornada integral |
 | 1.4.4 | correcoes-141 | Texto da jornada integral encurtado |
+| 1.4.5 | correcoes-141 | A1: campo "Senha das faturas" sempre visível em cada aba; a senha digitada vale para todas as faturas da aba, inclusive as enviadas depois (cada fatura ainda aceita uma senha própria) |
 
 Os APKs gerados antes da 1.3.0 mostram 1.0.0 (o número não era mudado). Para saber de qual
 código saiu um APK, veja a coluna "Git ref" na lista de builds do expo.dev.

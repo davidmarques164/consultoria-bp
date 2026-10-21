@@ -11,6 +11,7 @@ import { excluirFaturaArquivo, listarFaturasArquivo, marcarInicio, salvarFaturaA
 import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
 import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAutoSalvar } from '../../hooks/useAutoSalvar'
+import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { HistoricoMes } from '../../types/atendimento'
 import { FaturaArquivo } from '../../types/faseA'
@@ -62,12 +63,24 @@ export default function A1_HistoricoConsumoScreen() {
   // muda quando os dados chegam do banco, para os campos da tabela (não controlados) mostrarem o valor salvo
   const [carga, setCarga] = useState(0)
   const [pronto, setPronto] = useState(false)
+  // senha única por insumo, digitada antes ou depois do envio; vale para todas as faturas daquela aba
+  const [senhas, setSenhas] = useState<Partial<Record<Insumo, string>>>({})
+  const chaveSenhas = `A1-senhas-${atendimentoId}`
 
   useEffect(() => { loadData() }, [atendimentoId])
 
   const loadData = async () => {
     try {
-      const [data, lista] = await Promise.all([getHistoricoConsumo(atendimentoId), listarFaturasArquivo(empresaId)])
+      const [data, lista, senhasSalvas] = await Promise.all([
+        getHistoricoConsumo(atendimentoId), listarFaturasArquivo(empresaId), lerRascunho<Partial<Record<Insumo, string>>>(chaveSenhas),
+      ])
+      // sem rascunho (versão anterior do app): a senha geral começa com a última senha informada em cada aba
+      const iniciais: Partial<Record<Insumo, string>> = { ...(senhasSalvas ?? {}) }
+      if (!senhasSalvas) for (const ins of INSUMOS) {
+        const ultima = [...lista].reverse().find((f) => f.insumo === ins.key && f.senha)?.senha
+        if (ultima) iniciais[ins.key] = ultima
+      }
+      setSenhas(iniciais)
       setHistorico((prev) => ({
         glp: data.glp?.length ? data.glp : prev.glp,
         gas_natural: data.gas_natural?.length ? data.gas_natural : prev.gas_natural,
@@ -87,11 +100,12 @@ export default function A1_HistoricoConsumoScreen() {
   // A tabela dos outros insumos e as senhas das faturas gravam sozinhas, sem depender do botão Salvar
   // arquivos apagados nesta tela: uma gravação que já estava em curso não pode trazê-los de volta
   const removidos = useRef(new Set<string>())
-  const gravarTudo = async ({ h, a }: { h: typeof historico; a: FaturaArquivo[] }) => {
+  const gravarTudo = async ({ h, a, s }: { h: typeof historico; a: FaturaArquivo[]; s: typeof senhas }) => {
+    await gravarRascunho(chaveSenhas, s)
     for (const insumo of OUTROS) await upsertHistoricoConsumo(atendimentoId, insumo, h[insumo])
     for (const f of a) if (!removidos.current.has(f.id)) await salvarFaturaArquivo(empresaId, atendimentoId, { ...f, senha: f.senha?.trim() ? f.senha.trim() : null })
   }
-  const estadoTela = useMemo(() => ({ h: historico, a: arquivos }), [historico, arquivos])
+  const estadoTela = useMemo(() => ({ h: historico, a: arquivos, s: senhas }), [historico, arquivos, senhas])
   useAutoSalvar(estadoTela, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
 
   const handleEnviar = async () => {
@@ -101,7 +115,7 @@ export default function A1_HistoricoConsumoScreen() {
     setLoading(true)
     try {
       // a senha costuma ser a mesma em todas as faturas da unidade: as novas herdam a última informada
-      const senhaPadrao = [...doInsumo].reverse().find((a) => a.senha)?.senha ?? null
+      const senhaPadrao = senhas[activeTab]?.trim() || ([...doInsumo].reverse().find((a) => a.senha)?.senha ?? null)
       for (const file of result.assets) {
         const caminho = await guardarArquivo(file.uri, empresaId, file.name)
         await salvarFaturaArquivo(empresaId, atendimentoId, {
@@ -117,6 +131,12 @@ export default function A1_HistoricoConsumoScreen() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // a senha geral vale para todas as faturas da aba; cada fatura ainda pode ter a sua logo abaixo
+  const handleSenhaGeral = (senha: string) => {
+    setSenhas((p) => ({ ...p, [activeTab]: senha }))
+    setArquivos((p) => p.map((a) => (a.insumo === activeTab ? { ...a, senha } : a)))
   }
 
   const handleSenha = (id: string, senha: string) => setArquivos((p) => p.map((a) => (a.id === id ? { ...a, senha } : a)))
@@ -193,6 +213,15 @@ export default function A1_HistoricoConsumoScreen() {
         <TouchableOpacity style={styles.uploadBtn} onPress={handleEnviar}>
           <Text style={styles.uploadText}>{ehEnergia ? '📎  Enviar Faturas (até 12 PDFs)' : `📎  Enviar Faturas / Notas de ${activeData.label}`}</Text>
         </TouchableOpacity>
+
+        <Text style={styles.senhaRotulo}>Senha das faturas (se tiverem senha)</Text>
+        <TextInput
+          style={[styles.senha, { marginBottom: 12 }]}
+          value={senhas[activeTab] ?? ''}
+          onChangeText={handleSenhaGeral}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
         {ehEnergia && doInsumo.length === 0 && (
           <AlertBanner type="info" message="Envie as faturas de energia. O histórico, as tarifas e os horários são preenchidos a partir delas." />
