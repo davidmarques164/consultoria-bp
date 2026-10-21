@@ -191,7 +191,7 @@ export default function A4_LevantamentoCargasScreen() {
                 <Campo rotulo="Horas de uso por dia" valor={c.horasDia} onChange={(v) => alterar(c.chave, { horasDia: v })} num />
               )}
               {c.modo === '24h' && <Text style={styles.dica}>Ligada o dia todo (00:00 às 23:59).</Text>}
-              {c.modo === 'jornada' && <Text style={styles.dica}>Jornada integral: a carga fica ligada durante todo o expediente da empresa, nos mesmos dias e horários informados em "Horários de funcionamento". Por isso não é preciso informar dias nem horários aqui.</Text>}
+              {c.modo === 'jornada' && <Text style={styles.dica}>Jornada integral: a carga fica ligada durante todo o expediente da empresa, nos mesmos dias e horários informados em "Horários de funcionamento".</Text>}
               {c.modo === 'horario' && <Text style={styles.dica}>Digite só a hora: 17 = 17:00; 1730 = 17:30.</Text>}
               {c.modo === 'horario' && c.intervalos.map((iv, k) => (
                 <View key={k} style={styles.row}>
