@@ -10,6 +10,7 @@ import EmpresasFinalizadasScreen from '../screens/atendimento/EmpresasFinalizada
 import DetalhesEmpresaScreen from '../screens/atendimento/DetalhesEmpresaScreen'
 
 import A1_HistoricoConsumoScreen from '../screens/modulos/A1_HistoricoConsumoScreen'
+import FuncionamentoScreen from '../screens/modulos/FuncionamentoScreen'
 import A4_LevantamentoCargasScreen from '../screens/modulos/A4_LevantamentoCargasScreen'
 import SistemaScreen from '../screens/modulos/SistemaScreen'
 import B2_DadosGeraisScreen from '../screens/modulos/B2_DadosGeraisScreen'
@@ -32,6 +33,7 @@ export default function AppNavigator() {
       <Stack.Screen name="EmpresasFinalizadas" component={EmpresasFinalizadasScreen} options={{ title: 'Empresas Finalizadas' }} />
       <Stack.Screen name="DetalhesEmpresa" component={DetalhesEmpresaScreen} options={{ title: 'Detalhes da Empresa' }} />
       <Stack.Screen name="A1_HistoricoConsumo" component={A1_HistoricoConsumoScreen} options={{ title: 'A1 — Histórico de Consumo' }} />
+      <Stack.Screen name="Funcionamento" component={FuncionamentoScreen} options={{ title: 'Horários de funcionamento' }} />
       <Stack.Screen name="A4_LevantamentoCargas" component={A4_LevantamentoCargasScreen} options={{ title: 'A4 — Levantamento de Cargas' }} />
       {CONFIG_SISTEMAS.map((c) => (
         <Stack.Screen key={c.rota} name={c.rota as keyof AppStackParamList} component={SistemaScreen} options={{ title: `${c.aba} — ${c.titulo}` }} />

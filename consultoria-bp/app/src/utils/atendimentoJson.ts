@@ -6,6 +6,7 @@ import { Empresa } from '../types/empresa'
 import {
   AtendimentoJson, ArquivoParaEnvio, CargaJson, IntervencaoJson, OUTROS_INSUMOS, REGIMES, Regime, SISTEMAS, VERSAO_CONTRATO, W_POR_CV,
 } from '../types/atendimentoJson'
+import { funcionamentoParaJson, regimeDoFuncionamento, textoDoFuncionamento, FormFuncionamento } from './funcionamento'
 import { AcaoTarifaria, AtendimentoFaseA, Carga, FaturaArquivo, Intervencao } from '../types/faseA'
 
 export interface DadosParaExportar {
@@ -64,7 +65,9 @@ export function montarAtendimento(d: DadosParaExportar, agora: Date = new Date()
 
   const e = d.empresa
   const a = d.atendimento
-  const regime = (REGIMES as readonly string[]).includes(e.regime_trabalho ?? '') ? (e.regime_trabalho as Regime) : null
+  const funcionamento = funcionamentoParaJson(a.funcionamento as FormFuncionamento | null)
+  const regime = regimeDoFuncionamento(a.funcionamento as FormFuncionamento | null)
+    ?? ((REGIMES as readonly string[]).includes(e.regime_trabalho ?? '') ? (e.regime_trabalho as Regime) : null)
 
   const cartao = anexar(e.cartao_cnpj_path, `cartao_cnpj.${extensao(e.cartao_cnpj_nome ?? e.cartao_cnpj_path ?? '', 'pdf')}`)
 
@@ -144,7 +147,7 @@ export function montarAtendimento(d: DadosParaExportar, agora: Date = new Date()
       cartao_cnpj: cartao, cnpj: txt(e.cnpj), razao_social: txt(e.razao_social), porte: txt(e.porte), faixa_faturamento: txt(e.faixa_faturamento),
       endereco: { rua: txt(e.logradouro), numero: txt(e.numero), bairro: txt(e.bairro), cidade: txt(e.municipio), uf: txt(e.uf) },
       email: txt(e.email), telefone: txt(e.telefone), responsavel_legal: txt(e.responsavel_empresa),
-      regime, horario: txt(e.horario_trabalho),
+      regime, horario: textoDoFuncionamento(funcionamento) ?? txt(e.horario_trabalho), funcionamento,
     },
     atendimento: {
       consultor: { nome: txt(a.consultor_1) ?? txt(d.consultor.nome), email: txt(d.consultor.email) },
@@ -222,7 +225,8 @@ export function atendimentoParaMarkdown(j: AtendimentoJson): string {
     for (const c of j.cargas) {
       let uso = 'sem uso'
       if (c.em_uso) {
-        const horario = c.uso?.modo === '24h' ? '24 h por dia'
+        const horario = c.uso?.modo === 'jornada' ? 'jornada integral (horário de funcionamento)'
+          : c.uso?.modo === '24h' ? '24 h por dia'
           : c.uso?.modo === 'pontual' ? (c.uso.horas_dia !== null ? `uso pontual, ${nBR(c.uso.horas_dia)} h/dia` : 'uso pontual')
           : c.uso?.intervalos.map(([a, b]) => `${a}–${b}`).join(' e ') ?? ''
         const dias = c.uso?.dias_mes !== null && c.uso?.dias_mes !== undefined ? `${c.uso.dias_mes} dias/mês`

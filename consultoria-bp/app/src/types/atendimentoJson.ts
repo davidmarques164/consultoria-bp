@@ -68,6 +68,8 @@ export interface EmpresaJson {
   responsavel_legal: string | null
   regime: Regime | null
   horario: string | null
+  /** Horários de funcionamento por dia (tela "Horários de funcionamento"); null se não preenchido. */
+  funcionamento: { dias: { dia: string; turnos: [string, string][] }[] } | null
 }
 
 export interface AtendimentoInfoJson {
@@ -111,9 +113,10 @@ export interface EnergiaJson {
  * Como a carga é usada no dia:
  * - 'horario': liga e desliga em horários definidos (intervalos);
  * - 'pontual': uso esporádico, só a quantidade de horas por dia (portão, solda...);
- * - '24h': ligada o dia todo (intervalo 00:00–23:59).
+ * - '24h': ligada o dia todo (intervalo 00:00–23:59);
+ * - 'jornada': funciona durante todo o horário de funcionamento da empresa (empresa.funcionamento).
  */
-export type ModoUso = 'horario' | 'pontual' | '24h'
+export type ModoUso = 'horario' | 'pontual' | '24h' | 'jornada'
 
 export interface UsoCargaJson {
   modo: ModoUso

@@ -10,6 +10,7 @@ import { horaDigitada, numeroDigitado, numeroParaCampo } from '../src/utils/entr
 import { cargaDoForm, formCargaEmBranco, formCargaVazio, formDaCarga, formDaIntervencao, formIntervencaoEmBranco, formIntervencaoVazio, intervencaoDoForm } from '../src/utils/formularios'
 import { CONFIG_SISTEMAS } from '../src/constants/sistemas'
 import { SISTEMAS } from '../src/types/atendimentoJson'
+import { funcionamentoParaJson, funcionamentoVazio, problemasDoFuncionamento, regimeDoFuncionamento, textoDoFuncionamento } from '../src/utils/funcionamento'
 import { Empresa } from '../src/types/empresa'
 import { AtendimentoFaseA, Carga, Intervencao } from '../src/types/faseA'
 
@@ -27,7 +28,7 @@ const atendimento: AtendimentoFaseA = {
   inicio: '2026-09-15T13:00:00.000Z', fim: null, status: 'em_andamento', unidade_e_da_empresa: true, geracao_solar: false,
   observacao_consumo: 'Presta serviço fora da sede; uso pontual dos equipamentos.', consumo_medio_informado_kwh_mes: 41,
   data_aceitacao: '15/09/2026', data_execucao: null, data_encerramento: '', cidade_dr: 'Fortaleza', estado_dr: 'CE', nome_uo: null,
-  sistemas_nao_aplicaveis: ['A7', 'A8'],
+  sistemas_nao_aplicaveis: ['A7', 'A8'], funcionamento: null,
 }
 const base = { atendimento_id: 'a1', modo_uso: 'horario' as const, horas_dia: null, potencia_unidade: 'W' as const, potencia_origem: 'informada' as const, em_uso: true, dias_mes: null, uso_final: null, fotos: [] as string[] }
 const cargas: Carga[] = [
@@ -246,6 +247,35 @@ assert.deepEqual([formDaCarga({ ...pontual.carga, id: 'p', ordem: 1 }).modo, for
 // sem nada no tempo de uso: segue em branco para a skill perguntar
 assert.equal(cargaDoForm({ ...formCargaVazio(), nome: 'Torno' }, 'a1').carga.horas_dia, null)
 assert.equal(montarAtendimento({ ...dados, cargas: [{ ...cargaDoForm({ ...formCargaVazio(), nome: 'Torno' }, 'a1').carga, id: 't', ordem: 1 }] }).json.cargas[0].uso, null)
+
+// horários de funcionamento: seg a sex em dois turnos, sábado meio turno
+const func = funcionamentoVazio()
+for (const d of ['seg', 'ter', 'qua', 'qui', 'sex'] as const) func[d] = { ativo: true, turnos: [{ inicio: '7', fim: '12' }, { inicio: '13', fim: '1730' }] }
+func.sab = { ativo: true, turnos: [{ inicio: '0730', fim: '12' }] }
+func.dom = { ativo: false, turnos: [{ inicio: '8', fim: '9' }] }
+assert.deepEqual(problemasDoFuncionamento(func), [])
+const fj = funcionamentoParaJson(func)!
+assert.equal(fj.dias.length, 6, 'domingo desmarcado não entra')
+assert.deepEqual(fj.dias[0], { dia: 'Segunda-feira', turnos: [['07:00', '12:00'], ['13:00', '17:30']] })
+assert.deepEqual(fj.dias[5], { dia: 'Sábado', turnos: [['07:30', '12:00']] })
+assert.equal(regimeDoFuncionamento(func), 'Segunda a sábado')
+assert.equal(textoDoFuncionamento(fj), 'Seg a sex: 07:00–12:00 e 13:00–17:30; Sáb: 07:30–12:00')
+assert.equal(funcionamentoParaJson(funcionamentoVazio()), null)
+assert.equal(regimeDoFuncionamento(funcionamentoVazio()), null)
+assert.ok(problemasDoFuncionamento({ ...func, seg: { ativo: true, turnos: [{ inicio: '17', fim: '8' }] } }).length === 1)
+const comFunc = montarAtendimento({ ...dados, atendimento: { ...atendimento, funcionamento: func } }).json
+assert.equal(comFunc.empresa.regime, 'Segunda a sábado', 'regime sai do funcionamento')
+assert.equal(comFunc.empresa.horario, 'Seg a sex: 07:00–12:00 e 13:00–17:30; Sáb: 07:30–12:00')
+assert.equal(comFunc.empresa.funcionamento?.dias.length, 6)
+assert.equal(json.empresa.funcionamento, null)
+// jornada integral: a carga usa o horário de funcionamento
+const jornada = cargaDoForm({ ...formCargaVazio(), nome: 'Injetora', modo: 'jornada' }, 'a1')
+assert.equal(erros(jornada.problemas), 0)
+assert.ok(!alertas(jornada.problemas).some((m) => /Tempo de uso em branco/.test(m)))
+assert.equal(montarAtendimento({ ...dados, cargas: [{ ...jornada.carga, id: 'j', ordem: 1 }] }).json.cargas[0].uso?.modo, 'jornada')
+// 5,5 dias por semana (segunda a sexta + sábado meio turno)
+assert.equal(cargaDoForm({ ...formCargaVazio(), nome: 'x', dias: '5,5' }, 'a1').carga.dias_semana, 5.5)
+assert.equal(cargaDoForm({ ...formCargaVazio(), nome: 'x', dias: '5.5' }, 'a1').carga.dias_semana, 5.5)
 
 // só o nome, sem foto: é uma carga válida
 assert.equal(erros(cargaDoForm({ ...formCargaVazio(), nome: 'Compressor' }, 'a1').problemas), 0)

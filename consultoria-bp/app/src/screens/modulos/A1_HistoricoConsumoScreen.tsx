@@ -202,12 +202,13 @@ export default function A1_HistoricoConsumoScreen() {
           <View key={a.id} style={styles.arquivo}>
             <View style={{ flex: 1 }}>
               <Text style={styles.arquivoNome} numberOfLines={1}>📄 {a.nome_arquivo ?? 'arquivo'}</Text>
+              {/* o texto que ficava dentro do campo virou rótulo, para o campo não ficar sem nome */}
+              <Text style={styles.senhaRotulo}>Senha do PDF (se tiver)</Text>
               <TextInput
                 style={styles.senha}
                 value={a.senha ?? ''}
                 onChangeText={(v) => handleSenha(a.id, v)}
                 onEndEditing={() => gravarSenha(a)}
-                placeholder="Senha do PDF (se tiver)"
                 placeholderTextColor={Colors.grayMid}
                 autoCapitalize="none"
               />
@@ -237,7 +238,6 @@ export default function A1_HistoricoConsumoScreen() {
                     defaultValue={mes.consumo?.toString() ?? ''}
                     onChangeText={(v) => updateMes(activeTab as OutroInsumo, i, 'consumo', v)}
                     keyboardType="decimal-pad"
-                    placeholder="0"
                     placeholderTextColor={Colors.grayMid}
                   />
                   <TextInput
@@ -245,7 +245,6 @@ export default function A1_HistoricoConsumoScreen() {
                     defaultValue={mes.valor?.toString() ?? ''}
                     onChangeText={(v) => updateMes(activeTab as OutroInsumo, i, 'valor', v)}
                     keyboardType="decimal-pad"
-                    placeholder="0,00"
                     placeholderTextColor={Colors.grayMid}
                   />
                   <Text style={[styles.td, { flex: 2, textAlign: 'right' }]}>{media}</Text>
@@ -274,6 +273,7 @@ const styles = StyleSheet.create({
   uploadText: { color: Colors.blueDark, fontWeight: '700', fontSize: 18 },
   arquivo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.grayLight, borderRadius: 10, padding: 12, marginBottom: 8 },
   arquivoNome: { fontSize: 16, fontWeight: '600', color: Colors.black, marginBottom: 6 },
+  senhaRotulo: { fontSize: 14, color: Colors.gray, marginBottom: 4 },
   senha: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, paddingHorizontal: 12, minHeight: 48, fontSize: 16, color: Colors.black, backgroundColor: Colors.white },
   remover: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   removerTexto: { color: Colors.danger, fontSize: 20, fontWeight: '700' },

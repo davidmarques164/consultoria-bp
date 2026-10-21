@@ -33,12 +33,15 @@ interface Modulo {
   label: string
   icon: string
   nav: keyof AppStackParamList
+  /** Não é aba da planilha: o cartão não mostra identificador. */
+  semChave?: boolean
 }
 
 // Só o que o consultor informa no app. As demais abas da planilha (A2, A3, A14, B3, B5, B6, B7)
 // são preenchidas pela skill a partir das faturas, das fotos e dos textos daqui.
 const MODULOS_A: Modulo[] = [
   { key: 'A1', label: 'Histórico de Consumo', icon: '📊', nav: 'A1_HistoricoConsumo' },
+  { key: 'FUNC', label: 'Horários de funcionamento', icon: '🕐', nav: 'Funcionamento', semChave: true },
   { key: 'A4', label: 'Levantamento de Cargas', icon: '📷', nav: 'A4_LevantamentoCargas' },
   ...CONFIG_SISTEMAS.map((c) => ({ key: c.aba, label: c.titulo, icon: c.icone, nav: c.rota as keyof AppStackParamList })),
 ]
@@ -243,7 +246,7 @@ function ModuloCard({ modulo, concluido, onPress }: { modulo: Modulo; concluido:
     <View style={styles.celula}>
       <TouchableOpacity style={[styles.moduloCard, concluido && styles.moduloConcluido]} onPress={onPress} activeOpacity={0.85}>
         <Text style={styles.moduloIcon}>{modulo.icon}</Text>
-        <Text style={styles.moduloKey}>{modulo.key}</Text>
+        {!modulo.semChave && <Text style={styles.moduloKey}>{modulo.key}</Text>}
         <Text style={styles.moduloLabel} numberOfLines={2}>{modulo.label}</Text>
         {concluido && <Text style={styles.check}>✓</Text>}
       </TouchableOpacity>
@@ -299,8 +302,8 @@ const styles = StyleSheet.create({
   },
   moduloConcluido: { borderColor: Colors.primary, borderWidth: 3, backgroundColor: Colors.primaryLight },
   moduloIcon: { fontSize: 22, marginBottom: 4 },
-  moduloKey: { fontSize: 12, fontWeight: '700', color: Colors.blue, marginBottom: 2 },
-  moduloLabel: { fontSize: 10, color: Colors.gray, textAlign: 'center', lineHeight: 14 },
+  moduloKey: { fontSize: 16, fontWeight: '700', color: Colors.blue, marginBottom: 2 },
+  moduloLabel: { fontSize: 14, color: Colors.gray, textAlign: 'center', lineHeight: 18 },
   check: { fontSize: 14, color: Colors.primary, fontWeight: '700', marginTop: 2 },
   actionBtn: {
     flexDirection: 'row',

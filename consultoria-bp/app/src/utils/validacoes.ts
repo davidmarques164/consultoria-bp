@@ -28,6 +28,7 @@ const minutos = (hhmm: string): number | null => {
 /** Horas de uso por dia de uma carga (soma dos intervalos). */
 export function horasPorDia(c: Pick<CargaJson, 'uso'>): number {
   if (c.uso?.modo === 'pontual') return c.uso.horas_dia ?? 0
+  if (c.uso?.modo === 'jornada') return 1 // horas vêm do horário de funcionamento da empresa
   if (c.uso?.modo === '24h') return 24
   let total = 0
   for (const [a, b] of c.uso?.intervalos ?? []) {
@@ -68,7 +69,7 @@ export function validarCarga(c: CargaJson): Problema[] {
   if (c.potencia_w === null && c.fotos.length === 0) p.push({ nivel: 'alerta', campo: 'potencia_w', mensagem: 'Sem potência e sem foto: a potência terá de ser estimada pela categoria.' })
   const h = c.uso?.horas_dia
   if (c.uso?.modo === 'pontual' && h !== null && h !== undefined && (h <= 0 || h > 24)) p.push({ nivel: 'erro', campo: 'uso', mensagem: 'Horas por dia: entre 0 e 24.' })
-  if (c.em_uso && (c.uso === null || horasPorDia(c) <= 0 || diasPorMes(c) <= 0)) p.push({ nivel: 'alerta', campo: 'uso', mensagem: 'Tempo de uso em branco: precisará ser informado antes de gerar o relatório.' })
+  if (c.em_uso && (c.uso === null || horasPorDia(c) <= 0 || (c.uso.modo !== 'jornada' && diasPorMes(c) <= 0))) p.push({ nivel: 'alerta', campo: 'uso', mensagem: 'Tempo de uso em branco: precisará ser informado antes de gerar o relatório.' })
   if (nome.length > LIMITES.descricaoCarga) p.push({ nivel: 'alerta', campo: 'descricao', mensagem: `O nome tem ${nome.length} caracteres; na planilha cabem ${LIMITES.descricaoCarga}. Será abreviado no relatório.` })
   return p
 }

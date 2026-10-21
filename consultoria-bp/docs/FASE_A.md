@@ -66,6 +66,11 @@ horários; "17" é lido como 17:00 e "1730" como 17:30), `pontual` (só as horas
 para portão, solda e afins) e `24h` (intervalo 00:00–23:59). Sem nada preenchido, `uso` vai `null` e a
 skill pergunta, como antes, para o consumo das cargas bater com as faturas.
 
+`jornada` (jornada integral) quer dizer que a carga funciona durante todo o horário de funcionamento da
+empresa, informado no bloco "Horários de funcionamento" (entre A1 e A4, sem identificador de aba). Ele vai
+em `empresa.funcionamento` (dias marcados e turnos em HH:MM); `empresa.regime` e `empresa.horario` saem
+dele. Dias por semana pode ser fracionado: 5,5 = segunda a sexta + sábado meio turno.
+
 ## Quando a pasta do Drive é atualizada
 
 - **No cadastro da empresa:** a pasta é criada e recebe o cartão CNPJ e o `atendimento.json`.

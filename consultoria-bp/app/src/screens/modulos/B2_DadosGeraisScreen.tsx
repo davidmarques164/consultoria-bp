@@ -92,21 +92,21 @@ export default function B2_DadosGeraisScreen() {
     <>
       <KeyboardScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         <SectionHeader title="CONSULTORES" />
-        <Input label="Consultor 1 *" value={form.consultor_1} onChange={(v) => set('consultor_1', v)} placeholder="Nome completo" />
-        <Input label="Consultor 2" value={form.consultor_2} onChange={(v) => set('consultor_2', v)} placeholder="Nome completo (se houver)" />
+        <Input label="Consultor 1 *" value={form.consultor_1} onChange={(v) => set('consultor_1', v)} />
+        <Input label="Consultor 2" value={form.consultor_2} onChange={(v) => set('consultor_2', v)} />
 
         <SectionHeader title="DATAS (SGT)" />
-        <Input label="Data de Aceitação" value={form.data_aceitacao} onChange={(v) => set('data_aceitacao', v)} placeholder="DD/MM/AAAA" mask="date" hint="Data de aceite no SGT" />
-        <Input label="Data de Execução" value={form.data_execucao} onChange={(v) => set('data_execucao', v)} placeholder="DD/MM/AAAA" mask="date" hint="Data de execução da visita" />
-        <Input label="Data de Encerramento" value={form.data_encerramento} onChange={(v) => set('data_encerramento', v)} placeholder="DD/MM/AAAA" mask="date" />
+        <Input label="Data de Aceitação" value={form.data_aceitacao} onChange={(v) => set('data_aceitacao', v)} mask="date" hint="Data de aceite no SGT" />
+        <Input label="Data de Execução" value={form.data_execucao} onChange={(v) => set('data_execucao', v)} mask="date" hint="Data de execução da visita" />
+        <Input label="Data de Encerramento" value={form.data_encerramento} onChange={(v) => set('data_encerramento', v)} mask="date" />
 
         <SectionHeader title="IDENTIFICAÇÃO" />
-        <Input label="Nº da Proposta" value={form.numero_proposta} onChange={(v) => set('numero_proposta', v)} placeholder="Ex: 2024/001" />
-        <Input label="Nome da UO" value={form.nome_uo} onChange={(v) => set('nome_uo', v)} placeholder="Unidade Operacional SENAI" />
+        <Input label="Nº da Proposta" value={form.numero_proposta} onChange={(v) => set('numero_proposta', v)} />
+        <Input label="Nome da UO" value={form.nome_uo} onChange={(v) => set('nome_uo', v)} />
 
         <SectionHeader title="ESCRITÓRIO REGIONAL" />
         <Input label="Cidade do DR" value={form.cidade_dr} onChange={(v) => set('cidade_dr', v)} />
-        <Input label="Estado do DR" value={form.estado_dr} onChange={(v) => set('estado_dr', v.toUpperCase())} maxLength={2} placeholder="SP" />
+        <Input label="Estado do DR" value={form.estado_dr} onChange={(v) => set('estado_dr', v.toUpperCase())} maxLength={2} />
 
         <Button title="Salvar Módulo B2" onPress={handleSalvar} fullWidth style={{ marginTop: 24, marginBottom: 40 }} />
       </KeyboardScrollView>

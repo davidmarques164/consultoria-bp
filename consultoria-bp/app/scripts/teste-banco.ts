@@ -9,7 +9,7 @@ import { getDB } from '../src/db/schema'
 import { createEmpresa, getAtendimento, getEmpresa, getOrCreateAtendimento, updateAtendimento, updateEmpresa, upsertHistoricoConsumo } from '../src/db/operations'
 import {
   excluirCarga, excluirFaturaArquivo, excluirIntervencao, getAtendimentoFaseA, listarCargas, listarFaturasArquivo, listarIntervencoes,
-  marcarSistemaNaoAplicavel, salvarCarga, salvarFaturaArquivo, salvarIntervencao,
+  marcarSistemaNaoAplicavel, salvarCarga, salvarFuncionamento, salvarFaturaArquivo, salvarIntervencao,
 } from '../src/db/faseA'
 import { exportarAtendimento } from '../src/services/exportAtendimento'
 import { CONFIG_SISTEMAS } from '../src/constants/sistemas'
@@ -90,6 +90,8 @@ async function main() {
   assert.equal(ints.find((i) => i.id === salvo.id)?.descricao, 'Desligado ao meio-dia desde 29/09.')
   assert.equal(ints.find((i) => i.id === salvo.id)?.antes_valor, 11.51)
 
+  await salvarFuncionamento(atendimentoId, { seg: { ativo: true, turnos: [{ inicio: '7', fim: '' }] } })
+  assert.deepEqual((await getAtendimentoFaseA(atendimentoId))?.funcionamento, { seg: { ativo: true, turnos: [{ inicio: '7', fim: '' }] } }, 'volta como foi digitado')
   await marcarSistemaNaoAplicavel(atendimentoId, 'A7', true)
   await marcarSistemaNaoAplicavel(atendimentoId, 'A8', true)
   await marcarSistemaNaoAplicavel(atendimentoId, 'A8', false)

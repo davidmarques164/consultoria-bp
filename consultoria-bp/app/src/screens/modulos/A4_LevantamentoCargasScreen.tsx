@@ -161,10 +161,10 @@ export default function A4_LevantamentoCargasScreen() {
 
               <FotosCampo titulo="Fotos da carga" fotos={c.fotos} empresaId={empresaId} onChange={(f) => alterarFotos(c, f)} />
 
-              <Campo rotulo="Nome da carga" valor={c.nome} onChange={(v) => alterar(c.chave, { nome: v })} placeholder="Ex.: Split 12.000 BTU" />
+              <Campo rotulo="Nome da carga" valor={c.nome} onChange={(v) => alterar(c.chave, { nome: v })} />
               <View style={styles.row}>
                 <View style={{ flex: 2 }}>
-                  <Campo rotulo={`Potência / consumo (${c.unidade})`} valor={c.potencia} onChange={(v) => alterar(c.chave, { potencia: v })} num placeholder="da placa" />
+                  <Campo rotulo={`Potência / consumo (${c.unidade})`} valor={c.potencia} onChange={(v) => alterar(c.chave, { potencia: v })} num />
                 </View>
                 <View style={styles.unidades}>
                   {(['W', 'cv'] as const).map((u) => (
@@ -179,7 +179,7 @@ export default function A4_LevantamentoCargasScreen() {
               </View>
 
               <Text style={styles.sub}>Tempo de uso</Text>
-              <Campo rotulo="Dias por semana" valor={c.dias} onChange={(v) => alterar(c.chave, { dias: v })} num placeholder="1 a 7" />
+              {c.modo !== 'jornada' && <Campo rotulo="Dias por semana" valor={c.dias} onChange={(v) => alterar(c.chave, { dias: v })} num />}
               <View style={styles.modos}>
                 {MODOS.map((m) => (
                   <TouchableOpacity key={m.valor} style={[styles.modo, c.modo === m.valor && styles.modoAtivo]} onPress={() => alterar(c.chave, { modo: m.valor })}>
@@ -188,18 +188,19 @@ export default function A4_LevantamentoCargasScreen() {
                 ))}
               </View>
               {c.modo === 'pontual' && (
-                <Campo rotulo="Horas de uso por dia" valor={c.horasDia} onChange={(v) => alterar(c.chave, { horasDia: v })} num placeholder="Ex.: 1,5" />
+                <Campo rotulo="Horas de uso por dia" valor={c.horasDia} onChange={(v) => alterar(c.chave, { horasDia: v })} num />
               )}
               {c.modo === '24h' && <Text style={styles.dica}>Ligada o dia todo (00:00 às 23:59).</Text>}
+              {c.modo === 'jornada' && <Text style={styles.dica}>Funciona durante todo o horário de funcionamento da empresa.</Text>}
               {c.modo === 'horario' && <Text style={styles.dica}>Digite só a hora: 17 = 17:00; 1730 = 17:30.</Text>}
               {c.modo === 'horario' && c.intervalos.map((iv, k) => (
                 <View key={k} style={styles.row}>
                   <View style={{ flex: 1 }}>
-                    <Campo rotulo="Liga às" valor={iv.inicio} placeholder="08:00" hora
+                    <Campo rotulo="Liga às" valor={iv.inicio} hora
                       onChange={(v) => alterar(c.chave, { intervalos: c.intervalos.map((x, j) => (j === k ? { ...x, inicio: v } : x)) })} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Campo rotulo="Desliga às" valor={iv.fim} placeholder="17:00" hora
+                    <Campo rotulo="Desliga às" valor={iv.fim} hora
                       onChange={(v) => alterar(c.chave, { intervalos: c.intervalos.map((x, j) => (j === k ? { ...x, fim: v } : x)) })} />
                   </View>
                   {c.intervalos.length > 1 && (
@@ -234,7 +235,8 @@ export default function A4_LevantamentoCargasScreen() {
 }
 
 const MODOS: { valor: ModoUso; rotulo: string }[] = [
-  { valor: 'horario', rotulo: 'Horário' }, { valor: 'pontual', rotulo: 'Uso pontual' }, { valor: '24h', rotulo: '24 h' },
+  { valor: 'horario', rotulo: 'Horário' }, { valor: 'jornada', rotulo: 'Jornada integral' },
+  { valor: 'pontual', rotulo: 'Uso pontual' }, { valor: '24h', rotulo: '24 h' },
 ]
 
 function Campo({ rotulo, valor, onChange, num, hora, placeholder }: { rotulo: string; valor: string; onChange: (v: string) => void; num?: boolean; hora?: boolean; placeholder?: string }) {
@@ -243,7 +245,7 @@ function Campo({ rotulo, valor, onChange, num, hora, placeholder }: { rotulo: st
   return (
     <View style={{ marginBottom: 8 }}>
       <Text style={fs.label}>{rotulo}</Text>
-      <TextInput value={valor} onChangeText={onChange} onEndEditing={aoSair} keyboardType={hora ? 'number-pad' : num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} placeholder={placeholder} />
+      <TextInput value={valor} onChangeText={onChange} onEndEditing={aoSair} keyboardType={hora ? 'number-pad' : num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} />
     </View>
   )
 }

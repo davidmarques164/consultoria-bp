@@ -41,7 +41,15 @@ export async function getAtendimentoFaseA(atendimentoId: string): Promise<Atendi
     data_encerramento: r.data_encerramento ?? null, cidade_dr: r.cidade_dr ?? null,
     estado_dr: r.estado_dr ?? null, nome_uo: r.nome_uo ?? null,
     sistemas_nao_aplicaveis: lista<string[]>(r.sistemas_nao_aplicaveis, []),
+    funcionamento: lista<unknown>(r.funcionamento, null),
   }
+}
+
+/** Grava os horários de funcionamento da empresa, exatamente como estão na tela. */
+export async function salvarFuncionamento(atendimentoId: string, form: unknown): Promise<void> {
+  const db = await getDB()
+  await db.runAsync('UPDATE atendimentos SET funcionamento = ?, updated_at = ? WHERE id = ?', [JSON.stringify(form), agora(), atendimentoId])
+  await marcarInicio(atendimentoId)
 }
 
 /** Marca (ou desmarca) uma aba de sistema, A5 a A13, como "não se aplica a esta empresa". */
@@ -81,7 +89,7 @@ function linhaParaCarga(r: any): Carga {
     potencia_origem: r.potencia_origem ?? 'informada',
     quantidade: r.quantidade ?? 1, em_uso: r.em_uso !== 0, dias_semana: r.dias_semana ?? null, dias_mes: r.dias_mes ?? null,
     intervalos: lista<[string, string][]>(r.intervalos, []),
-    modo_uso: r.modo_uso === 'pontual' || r.modo_uso === '24h' ? r.modo_uso : 'horario', horas_dia: r.horas_dia ?? null,
+    modo_uso: ['pontual', '24h', 'jornada'].includes(r.modo_uso) ? r.modo_uso : 'horario', horas_dia: r.horas_dia ?? null,
     uso_final: r.uso_final ?? null, fotos: lista<string[]>(r.fotos, []),
   }
 }

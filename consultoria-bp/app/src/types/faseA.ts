@@ -98,4 +98,6 @@ export interface AtendimentoFaseA {
   nome_uo: string | null
   /** Abas de sistema (A5 a A13) marcadas como "não se aplica". */
   sistemas_nao_aplicaveis: string[]
+  /** Horários de funcionamento como digitados na tela (FormFuncionamento). */
+  funcionamento: unknown | null
 }

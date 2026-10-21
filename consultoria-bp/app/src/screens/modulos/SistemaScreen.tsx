@@ -257,12 +257,10 @@ function CartaoEquipamento({ cfg, numero, cartao: c, empresaId, problemas, onAlt
       )}
 
       <Text style={styles.sub}>Modificação proposta</Text>
-      <TextInput value={c.proposta} onChangeText={(v) => onAlterar({ proposta: v })} multiline style={styles.textArea} placeholderTextColor={Colors.grayMid}
-        placeholder="O que foi proposto para este equipamento." />
+      <TextInput value={c.proposta} onChangeText={(v) => onAlterar({ proposta: v })} multiline style={styles.textArea} placeholderTextColor={Colors.grayMid} />
 
       <Text style={styles.sub}>Intervenção efetuada</Text>
-      <TextInput value={c.efetuada} onChangeText={(v) => onAlterar({ efetuada: v })} multiline style={styles.textArea} placeholderTextColor={Colors.grayMid}
-        placeholder="O que foi feito, como e quando. É a base dos textos do relatório." />
+      <TextInput value={c.efetuada} onChangeText={(v) => onAlterar({ efetuada: v })} multiline style={styles.textArea} placeholderTextColor={Colors.grayMid} />
 
       <FotosCampo titulo="Fotos do sistema — antes" fotos={c.fotosAntes} empresaId={empresaId} onChange={(f) => onFotos({ fotosAntes: f })} />
       <FotosCampo titulo="Fotos do sistema — depois" fotos={c.fotosDepois} empresaId={empresaId} onChange={(f) => onFotos({ fotosDepois: f })} />
@@ -313,7 +311,7 @@ function Campo({ rotulo, valor, onChange, num, placeholder }: { rotulo: string; 
   return (
     <View style={{ marginBottom: 8 }}>
       <Text style={fs.label}>{rotulo}</Text>
-      <TextInput value={valor} onChangeText={onChange} keyboardType={num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} placeholder={placeholder} />
+      <TextInput value={valor} onChangeText={onChange} keyboardType={num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} />
     </View>
   )
 }

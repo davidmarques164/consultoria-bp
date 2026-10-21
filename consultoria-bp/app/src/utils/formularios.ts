@@ -61,7 +61,7 @@ export function cargaDoForm(f: FormCarga, atendimentoId: string, anterior?: Carg
   let dias = numeroDigitado(f.dias)
   if (Number.isNaN(dias)) { erro('uso', 'Dias por semana: digite um número de 1 a 7.'); dias = null }
 
-  const modo: ModoUso = f.modo === 'pontual' || f.modo === '24h' ? f.modo : 'horario'
+  const modo: ModoUso = f.modo === 'pontual' || f.modo === '24h' || f.modo === 'jornada' ? f.modo : 'horario'
   let horasDia: number | null = null
   if (modo === 'pontual') {
     horasDia = numeroDigitado(f.horasDia)

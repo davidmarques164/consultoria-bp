@@ -13,6 +13,7 @@ export type AppStackParamList = {
   DetalhesEmpresa: { empresaId: string }
   // Módulos preenchidos no app (o restante da planilha é preenchido pela skill)
   A1_HistoricoConsumo: { empresaId: string; atendimentoId: string }
+  Funcionamento: { empresaId: string; atendimentoId: string }
   A4_LevantamentoCargas: { empresaId: string; atendimentoId: string }
   // Sistemas: as nove rotas abrem a mesma tela (SistemaScreen), configurada por constants/sistemas.ts
   A5_Iluminacao: { empresaId: string; atendimentoId: string }

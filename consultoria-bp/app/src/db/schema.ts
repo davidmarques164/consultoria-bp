@@ -106,6 +106,7 @@ async function migrarFaseA(db: SQLite.SQLiteDatabase) {
   await addColumnIfMissing(db, 'intervencoes', 'proposta', 'TEXT')
   await addColumnIfMissing(db, 'cargas', 'potencia_unidade', 'TEXT')
   await addColumnIfMissing(db, 'cargas', 'modo_uso', 'TEXT')
+  await addColumnIfMissing(db, 'atendimentos', 'funcionamento', 'TEXT')
   await addColumnIfMissing(db, 'cargas', 'horas_dia', 'REAL')
   await db.execAsync(`CREATE TABLE IF NOT EXISTS rascunhos (chave TEXT PRIMARY KEY, conteudo TEXT NOT NULL, updated_at TEXT)`)
 }
