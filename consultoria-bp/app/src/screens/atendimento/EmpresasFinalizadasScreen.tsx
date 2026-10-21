@@ -83,5 +83,5 @@ export default function EmpresasFinalizadasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.grayLight },
-  dica: { fontSize: 13, color: Colors.gray, marginHorizontal: 16, marginTop: 8, marginBottom: 4 },
+  dica: { fontSize: 15, color: Colors.gray, marginHorizontal: 16, marginTop: 8, marginBottom: 4 },
 })

@@ -154,7 +154,7 @@ export default function A4_LevantamentoCargasScreen() {
             <View key={c.chave} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>Carga #{i + 1}</Text>
-                <TouchableOpacity onPress={() => remover(c)}><Text style={styles.remove}>✕</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => remover(c)} hitSlop={14} accessibilityLabel="Remover"><Text style={styles.remove}>✕</Text></TouchableOpacity>
               </View>
 
               <FotosCampo titulo="Fotos da carga" fotos={c.fotos} empresaId={empresaId} onChange={(f) => alterarFotos(c, f)} />
@@ -189,7 +189,7 @@ export default function A4_LevantamentoCargasScreen() {
                       onChange={(v) => alterar(c.chave, { intervalos: c.intervalos.map((x, j) => (j === k ? { ...x, fim: v } : x)) })} />
                   </View>
                   {c.intervalos.length > 1 && (
-                    <TouchableOpacity style={styles.menos} onPress={() => alterar(c.chave, { intervalos: c.intervalos.filter((_, j) => j !== k) })}>
+                    <TouchableOpacity style={styles.menos} accessibilityLabel="Remover horário" onPress={() => alterar(c.chave, { intervalos: c.intervalos.filter((_, j) => j !== k) })}>
                       <Text style={styles.remove}>✕</Text>
                     </TouchableOpacity>
                   )}
@@ -221,33 +221,33 @@ function Campo({ rotulo, valor, onChange, num, placeholder }: { rotulo: string; 
   return (
     <View style={{ marginBottom: 8 }}>
       <Text style={fs.label}>{rotulo}</Text>
-      <TextInput value={valor} onChangeText={onChange} keyboardType={num ? 'decimal-pad' : 'default'} style={fs.input} placeholder={placeholder} />
+      <TextInput value={valor} onChangeText={onChange} keyboardType={num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} placeholder={placeholder} />
     </View>
   )
 }
 
 const fs = StyleSheet.create({
-  label: { fontSize: 12, color: Colors.gray, marginBottom: 3 },
-  input: { borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, backgroundColor: Colors.white },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: '600', color: Colors.black, marginBottom: 6 },
+  input: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minHeight: 52, fontSize: 17, color: Colors.black, backgroundColor: Colors.white },
 })
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.white },
   container: { padding: 16 },
-  card: { backgroundColor: Colors.grayLight, borderRadius: 12, padding: 12, marginBottom: 14 },
+  card: { backgroundColor: Colors.grayLight, borderRadius: 12, padding: 16, marginBottom: 16 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: Colors.primary },
-  remove: { color: Colors.danger, fontSize: 16, fontWeight: '700' },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
-  menos: { paddingHorizontal: 6, paddingBottom: 18 },
-  unidades: { flexDirection: 'row', gap: 4, marginBottom: 8 },
-  unidade: { borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: Colors.white },
-  unidadeAtiva: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  unidadeTexto: { fontSize: 13, fontWeight: '700', color: Colors.gray },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
+  remove: { color: Colors.danger, fontSize: 20, fontWeight: '700' },
+  row: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
+  menos: { width: 48, minHeight: 52, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  unidades: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  unidade: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, minHeight: 48, minWidth: 56, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 14, backgroundColor: Colors.white },
+  unidadeAtiva: { borderColor: Colors.primary, borderWidth: 3, backgroundColor: Colors.primaryLight },
+  unidadeTexto: { fontSize: 16, fontWeight: '700', color: Colors.gray },
   unidadeTextoAtivo: { color: Colors.primaryDark },
-  sub: { fontSize: 13, fontWeight: '700', color: Colors.black, marginTop: 4, marginBottom: 6 },
-  link: { color: Colors.blue, fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  erro: { color: Colors.danger, fontSize: 12, marginTop: 4 },
-  alerta: { color: '#7A5B00', fontSize: 12, marginTop: 4 },
-  addBtn: { borderWidth: 2, borderColor: Colors.primary, borderStyle: 'dashed', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginBottom: 8 },
-  addBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 15 },
+  sub: { fontSize: 16, fontWeight: '700', color: Colors.black, marginTop: 4, marginBottom: 6 },
+  link: { color: Colors.blue, fontSize: 16, fontWeight: '700', textDecorationLine: 'underline', paddingVertical: 12, marginBottom: 2 },
+  erro: { color: Colors.danger, fontSize: 15, fontWeight: '600', marginTop: 4 },
+  alerta: { color: Colors.warningText, fontSize: 15, fontWeight: '600', marginTop: 4 },
+  addBtn: { borderWidth: 2, borderColor: Colors.primary, borderStyle: 'dashed', borderRadius: 10, minHeight: 56, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  addBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 18 },
 })

@@ -208,10 +208,11 @@ export default function A1_HistoricoConsumoScreen() {
                 onChangeText={(v) => handleSenha(a.id, v)}
                 onEndEditing={() => gravarSenha(a)}
                 placeholder="Senha do PDF (se tiver)"
+                placeholderTextColor={Colors.grayMid}
                 autoCapitalize="none"
               />
             </View>
-            <TouchableOpacity onPress={() => handleRemover(a)} style={styles.remover}>
+            <TouchableOpacity onPress={() => handleRemover(a)} style={styles.remover} accessibilityLabel="Remover arquivo">
               <Text style={styles.removerTexto}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -237,6 +238,7 @@ export default function A1_HistoricoConsumoScreen() {
                     onChangeText={(v) => updateMes(activeTab as OutroInsumo, i, 'consumo', v)}
                     keyboardType="decimal-pad"
                     placeholder="0"
+                    placeholderTextColor={Colors.grayMid}
                   />
                   <TextInput
                     style={[styles.tdInput, { flex: 2 }]}
@@ -244,6 +246,7 @@ export default function A1_HistoricoConsumoScreen() {
                     onChangeText={(v) => updateMes(activeTab as OutroInsumo, i, 'valor', v)}
                     keyboardType="decimal-pad"
                     placeholder="0,00"
+                    placeholderTextColor={Colors.grayMid}
                   />
                   <Text style={[styles.td, { flex: 2, textAlign: 'right' }]}>{media}</Text>
                 </View>
@@ -262,21 +265,21 @@ export default function A1_HistoricoConsumoScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.white },
   container: { padding: 12 },
-  tabs: { flexDirection: 'row', marginBottom: 12 },
-  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.grayLight, marginRight: 8 },
-  tabActive: { backgroundColor: Colors.blue },
-  tabText: { fontSize: 13, color: Colors.gray, fontWeight: '600' },
+  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  tab: { paddingHorizontal: 18, minHeight: 48, justifyContent: 'center', borderRadius: 24, borderWidth: 2, borderColor: Colors.grayMid, backgroundColor: Colors.white },
+  tabActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
+  tabText: { fontSize: 16, color: Colors.gray, fontWeight: '700' },
   tabTextActive: { color: Colors.white },
-  uploadBtn: { backgroundColor: Colors.blueLight, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
-  uploadText: { color: Colors.blueDark, fontWeight: '700', fontSize: 15 },
-  arquivo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.grayLight, borderRadius: 10, padding: 10, marginBottom: 8 },
-  arquivoNome: { fontSize: 13, fontWeight: '600', color: Colors.black, marginBottom: 6 },
-  senha: { borderWidth: 1, borderColor: Colors.grayMid, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, fontSize: 13, backgroundColor: Colors.white },
-  remover: { padding: 8 },
-  removerTexto: { color: Colors.danger, fontSize: 16, fontWeight: '700' },
-  tableHeader: { flexDirection: 'row', backgroundColor: Colors.blue, borderRadius: 6, padding: 8, marginBottom: 2 },
-  th: { fontSize: 11, fontWeight: '700', color: Colors.white, textAlign: 'center' },
-  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: Colors.grayLight },
-  td: { fontSize: 13, color: Colors.black, textAlign: 'center', paddingHorizontal: 2 },
-  tdInput: { fontSize: 13, borderWidth: 1, borderColor: Colors.grayMid, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 4, textAlign: 'center', marginHorizontal: 2, backgroundColor: Colors.white },
+  uploadBtn: { backgroundColor: Colors.blueLight, borderWidth: 2, borderColor: Colors.blue, borderRadius: 10, minHeight: 56, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  uploadText: { color: Colors.blueDark, fontWeight: '700', fontSize: 18 },
+  arquivo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.grayLight, borderRadius: 10, padding: 12, marginBottom: 8 },
+  arquivoNome: { fontSize: 16, fontWeight: '600', color: Colors.black, marginBottom: 6 },
+  senha: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, paddingHorizontal: 12, minHeight: 48, fontSize: 16, color: Colors.black, backgroundColor: Colors.white },
+  remover: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
+  removerTexto: { color: Colors.danger, fontSize: 20, fontWeight: '700' },
+  tableHeader: { flexDirection: 'row', backgroundColor: Colors.blue, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 4, marginBottom: 2 },
+  th: { fontSize: 14, fontWeight: '700', color: Colors.white, textAlign: 'center' },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: Colors.grayMid },
+  td: { fontSize: 15, color: Colors.black, textAlign: 'center', paddingHorizontal: 2, fontVariant: ['tabular-nums'] },
+  tdInput: { fontSize: 16, color: Colors.black, borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 8, paddingHorizontal: 4, minHeight: 48, textAlign: 'center', marginHorizontal: 2, backgroundColor: Colors.white },
 })

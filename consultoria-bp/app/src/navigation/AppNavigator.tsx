@@ -20,7 +20,7 @@ const Stack = createStackNavigator<AppStackParamList>()
 const screenOptions = {
   headerStyle: { backgroundColor: Colors.primary },
   headerTintColor: Colors.white,
-  headerTitleStyle: { fontWeight: '700' as const },
+  headerTitleStyle: { fontWeight: '700' as const, fontSize: 19 },
 }
 
 export default function AppNavigator() {

@@ -235,7 +235,7 @@ function CartaoEquipamento({ cfg, numero, cartao: c, empresaId, problemas, onAlt
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{cfg.item} #{numero}</Text>
-        <TouchableOpacity onPress={onRemover}><Text style={styles.remove}>✕</Text></TouchableOpacity>
+        <TouchableOpacity onPress={onRemover} hitSlop={14} accessibilityLabel="Remover"><Text style={styles.remove}>✕</Text></TouchableOpacity>
       </View>
 
       <Campo rotulo="Equipamento (nome ou identificação)" valor={c.equipamento} onChange={(v) => onAlterar({ equipamento: v })} />
@@ -257,11 +257,11 @@ function CartaoEquipamento({ cfg, numero, cartao: c, empresaId, problemas, onAlt
       )}
 
       <Text style={styles.sub}>Modificação proposta</Text>
-      <TextInput value={c.proposta} onChangeText={(v) => onAlterar({ proposta: v })} multiline style={styles.textArea}
+      <TextInput value={c.proposta} onChangeText={(v) => onAlterar({ proposta: v })} multiline style={styles.textArea} placeholderTextColor={Colors.grayMid}
         placeholder="O que foi proposto para este equipamento." />
 
       <Text style={styles.sub}>Intervenção efetuada</Text>
-      <TextInput value={c.efetuada} onChangeText={(v) => onAlterar({ efetuada: v })} multiline style={styles.textArea}
+      <TextInput value={c.efetuada} onChangeText={(v) => onAlterar({ efetuada: v })} multiline style={styles.textArea} placeholderTextColor={Colors.grayMid}
         placeholder="O que foi feito, como e quando. É a base dos textos do relatório." />
 
       <FotosCampo titulo="Fotos do sistema — antes" fotos={c.fotosAntes} empresaId={empresaId} onChange={(f) => onFotos({ fotosAntes: f })} />
@@ -313,44 +313,44 @@ function Campo({ rotulo, valor, onChange, num, placeholder }: { rotulo: string; 
   return (
     <View style={{ marginBottom: 8 }}>
       <Text style={fs.label}>{rotulo}</Text>
-      <TextInput value={valor} onChangeText={onChange} keyboardType={num ? 'decimal-pad' : 'default'} style={fs.input} placeholder={placeholder} />
+      <TextInput value={valor} onChangeText={onChange} keyboardType={num ? 'decimal-pad' : 'default'} style={fs.input} placeholderTextColor={Colors.grayMid} placeholder={placeholder} />
     </View>
   )
 }
 
 const fs = StyleSheet.create({
-  label: { fontSize: 12, color: Colors.gray, marginBottom: 3 },
-  input: { borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, backgroundColor: Colors.white },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: '600', color: Colors.black, marginBottom: 6 },
+  input: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, minHeight: 52, fontSize: 17, color: Colors.black, backgroundColor: Colors.white },
 })
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.white },
   container: { padding: 16 },
-  acoes: { backgroundColor: Colors.primaryLight, borderRadius: 10, padding: 12, marginTop: 4 },
-  acoesTitulo: { fontSize: 14, fontWeight: '700', color: Colors.primaryDark, marginBottom: 6 },
-  acao: { fontSize: 13, color: Colors.black, lineHeight: 20 },
-  acoesNota: { fontSize: 11, color: Colors.gray, marginTop: 6 },
-  card: { backgroundColor: Colors.grayLight, borderRadius: 12, padding: 12, marginBottom: 14 },
+  acoes: { backgroundColor: Colors.primaryLight, borderRadius: 10, padding: 16, marginTop: 4 },
+  acoesTitulo: { fontSize: 16, fontWeight: '700', color: Colors.primaryDark, marginBottom: 6 },
+  acao: { fontSize: 16, color: Colors.black, lineHeight: 23 },
+  acoesNota: { fontSize: 14, color: Colors.gray, marginTop: 6 },
+  card: { backgroundColor: Colors.grayLight, borderRadius: 12, padding: 16, marginBottom: 16 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: Colors.primary },
-  remove: { color: Colors.danger, fontSize: 16, fontWeight: '700' },
-  row: { flexDirection: 'row', gap: 8 },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: Colors.primary },
+  remove: { color: Colors.danger, fontSize: 20, fontWeight: '700' },
+  row: { flexDirection: 'row', gap: 12 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   metade: { width: '48.5%' },
-  sub: { fontSize: 13, fontWeight: '700', color: Colors.black, marginTop: 6, marginBottom: 6 },
-  secao: { paddingVertical: 8, marginBottom: 4 },
-  secaoTexto: { fontSize: 13, fontWeight: '700', color: Colors.blue },
-  textArea: { borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 10, padding: 10, fontSize: 14, minHeight: 80, textAlignVertical: 'top', backgroundColor: Colors.white, marginBottom: 10 },
-  chips: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  chip: { borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.white },
-  chipAtivo: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  chipTexto: { fontSize: 12, color: Colors.gray, fontWeight: '600' },
+  sub: { fontSize: 16, fontWeight: '700', color: Colors.black, marginTop: 6, marginBottom: 6 },
+  secao: { minHeight: 48, justifyContent: 'center', marginBottom: 4 },
+  secaoTexto: { fontSize: 16, fontWeight: '700', color: Colors.blue },
+  textArea: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, padding: 12, fontSize: 17, color: Colors.black, minHeight: 96, textAlignVertical: 'top', backgroundColor: Colors.white, marginBottom: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 10 },
+  chip: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 24, minHeight: 48, justifyContent: 'center', paddingHorizontal: 18, backgroundColor: Colors.white },
+  chipAtivo: { borderColor: Colors.primary, borderWidth: 3, backgroundColor: Colors.primaryLight },
+  chipTexto: { fontSize: 16, color: Colors.gray, fontWeight: '600' },
   chipTextoAtivo: { color: Colors.primaryDark },
-  erro: { color: Colors.danger, fontSize: 12, marginTop: 4 },
-  alerta: { color: '#7A5B00', fontSize: 12, marginTop: 4 },
-  addBtn: { borderWidth: 2, borderColor: Colors.primary, borderStyle: 'dashed', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginBottom: 8 },
-  addBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 15 },
-  optBtn: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 12 },
-  optActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  optText: { fontSize: 15, color: Colors.gray, fontWeight: '600' },
+  erro: { color: Colors.danger, fontSize: 15, fontWeight: '600', marginTop: 4 },
+  alerta: { color: Colors.warningText, fontSize: 15, fontWeight: '600', marginTop: 4 },
+  addBtn: { borderWidth: 2, borderColor: Colors.primary, borderStyle: 'dashed', borderRadius: 10, minHeight: 56, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  addBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 18 },
+  optBtn: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, minHeight: 56, justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 16, marginBottom: 12 },
+  optActive: { borderColor: Colors.primary, borderWidth: 3, backgroundColor: Colors.primaryLight },
+  optText: { fontSize: 17, color: Colors.gray, fontWeight: '600' },
   optTextActive: { color: Colors.primaryDark },
 })

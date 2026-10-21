@@ -59,8 +59,9 @@ const styles = StyleSheet.create({
     margin: 16,
     backgroundColor: Colors.primary,
     borderRadius: 10,
-    paddingVertical: 12,
+    minHeight: 56,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  novaBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
+  novaBtnText: { color: Colors.white, fontWeight: '700', fontSize: 18 },
 })

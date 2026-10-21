@@ -23,7 +23,7 @@ export default function LoadingOverlay({ visible, message }: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(20, 20, 20, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -34,5 +34,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 160,
   },
-  text: { marginTop: 12, color: Colors.gray, fontSize: 14, textAlign: 'center' },
+  text: { marginTop: 12, color: Colors.black, fontSize: 17, textAlign: 'center' },
 })
