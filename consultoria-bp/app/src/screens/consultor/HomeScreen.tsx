@@ -13,6 +13,7 @@ import type { StackNavigationProp } from '@react-navigation/stack'
 import { AppStackParamList } from '../../navigation/types'
 import { useAuthStore } from '../../store/authStore'
 import { signOut } from '../../services/googleAuth'
+import { VERSAO_APP } from '../../constants/versao'
 import { Colors } from '../../constants/colors'
 
 type Nav = StackNavigationProp<AppStackParamList>
@@ -83,6 +84,7 @@ export default function HomeScreen() {
         >
           <Text style={styles.secondaryText}>✅  Empresas Finalizadas</Text>
         </TouchableOpacity>
+        <Text style={styles.versao}>Versão {VERSAO_APP}</Text>
       </View>
     </SafeAreaView>
   )
@@ -98,6 +100,7 @@ function BigButton({ icon, label, onPress, color }: { icon: string; label: strin
 }
 
 const styles = StyleSheet.create({
+  versao: { textAlign: 'center', fontSize: 12, color: Colors.gray, marginTop: 24 },
   safe: { flex: 1, backgroundColor: Colors.grayLight },
   header: {
     backgroundColor: Colors.primary,

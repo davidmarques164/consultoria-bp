@@ -4,6 +4,7 @@ import { signIn } from '../../services/googleAuth'
 import { useAuthStore } from '../../store/authStore'
 import { getDB } from '../../db/schema'
 import { Colors } from '../../constants/colors'
+import { VERSAO_APP } from '../../constants/versao'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 
 export default function LoginScreen() {
@@ -42,6 +43,7 @@ export default function LoginScreen() {
           <Text style={styles.googleIcon}>G</Text>
           <Text style={styles.googleText}>Entrar com Google</Text>
         </TouchableOpacity>
+        <Text style={styles.versao}>Versão {VERSAO_APP}</Text>
       </ScrollView>
       <LoadingOverlay visible={loading} message="Entrando..." />
     </View>
@@ -73,5 +75,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   googleIcon: { fontSize: 18, fontWeight: '700', color: Colors.blue, marginRight: 12, fontFamily: 'serif' },
+  versao: { fontSize: 12, color: Colors.gray, marginTop: 20 },
   googleText: { fontSize: 16, fontWeight: '700', color: Colors.black },
 })

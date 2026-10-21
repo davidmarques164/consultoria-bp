@@ -2,7 +2,8 @@ export default {
   expo: {
     name: 'Consultoria B+P',
     slug: 'consultoria-bp',
-    version: '1.0.0',
+    // Mude a cada nova versão entregue (ver docs/VERSOES.md). Aparece no login e na tela inicial.
+    version: '1.3.0',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     icon: './assets/images/icon.png',
