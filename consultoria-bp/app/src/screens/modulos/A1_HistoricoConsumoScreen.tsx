@@ -1,25 +1,22 @@
-import React, { useState, useEffect } from 'react'
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  Alert,
-} from 'react-native'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import * as DocumentPicker from 'expo-document-picker'
 import { useRoute } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
 import { AppStackParamList } from '../../navigation/types'
 import { Colors } from '../../constants/colors'
-import { extrairFatura } from '../../services/backendApi'
-import { upsertHistoricoConsumo, getHistoricoConsumo, updateAtendimento, getEmpresa, getAtendimentoById } from '../../db/operations'
+import { upsertHistoricoConsumo, getHistoricoConsumo, updateAtendimento } from '../../db/operations'
+import { excluirFaturaArquivo, listarFaturasArquivo, marcarInicio, salvarFaturaArquivo } from '../../db/faseA'
+import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
+import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
+import { useAutoSalvar } from '../../hooks/useAutoSalvar'
+import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { HistoricoMes } from '../../types/atendimento'
+import { FaturaArquivo } from '../../types/faseA'
 import SectionHeader from '../../components/common/SectionHeader'
-import SenhaModal from '../../components/atendimento/SenhaModal'
+import AlertBanner from '../../components/common/AlertBanner'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import Button from '../../components/common/Button'
 import { formatMesAno } from '../../utils/formatters'
@@ -27,6 +24,7 @@ import { formatMesAno } from '../../utils/formatters'
 type Route = RouteProp<AppStackParamList, 'A1_HistoricoConsumo'>
 
 type Insumo = 'energia_eletrica' | 'glp' | 'gas_natural' | 'lenha' | 'biomassa'
+type OutroInsumo = Exclude<Insumo, 'energia_eletrica'>
 
 const INSUMOS: { key: Insumo; label: string; unit: string }[] = [
   { key: 'energia_eletrica', label: 'Energia Elétrica', unit: 'kWh' },
@@ -35,133 +33,148 @@ const INSUMOS: { key: Insumo; label: string; unit: string }[] = [
   { key: 'lenha', label: 'Lenha', unit: 'm³' },
   { key: 'biomassa', label: 'Biomassa', unit: 'kg' },
 ]
+const OUTROS: OutroInsumo[] = ['glp', 'gas_natural', 'lenha', 'biomassa']
 
 function emptyMeses(): HistoricoMes[] {
   return Array.from({ length: 12 }, (_, i) => {
     const d = new Date()
     d.setMonth(d.getMonth() - 11 + i)
-    return {
-      mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      consumo: null,
-      valor: null,
-    }
+    return { mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, consumo: null, valor: null }
   })
 }
 
+/**
+ * A1 — Histórico de consumo.
+ * Energia elétrica: só o envio das faturas; a skill lê os PDFs e preenche o histórico, as tarifas e os horários.
+ * Outros insumos: a tabela mensal continua e há um envio de faturas/notas igual ao da energia.
+ */
 export default function A1_HistoricoConsumoScreen() {
   const route = useRoute<Route>()
   const { empresaId, atendimentoId } = route.params
   const { marcarModuloConcluido } = useAtendimentoStore()
 
   const [activeTab, setActiveTab] = useState<Insumo>('energia_eletrica')
-  const [historico, setHistorico] = useState<Record<Insumo, HistoricoMes[]>>({
-    energia_eletrica: emptyMeses(),
-    glp: emptyMeses(),
-    gas_natural: emptyMeses(),
-    lenha: emptyMeses(),
-    biomassa: emptyMeses(),
+  const [historico, setHistorico] = useState<Record<OutroInsumo, HistoricoMes[]>>({
+    glp: emptyMeses(), gas_natural: emptyMeses(), lenha: emptyMeses(), biomassa: emptyMeses(),
   })
-  const [btOuAt, setBtOuAt] = useState(false) // false=BT, true=AT
-  const [horarios, setHorarios] = useState({
-    fora_ponta_inicio: '', fora_ponta_fim: '',
-    ponta_inicio: '', ponta_fim: '',
-    intermediario1_inicio: '', intermediario1_fim: '',
-    intermediario2_inicio: '', intermediario2_fim: '',
-  })
-  const [tarifas, setTarifas] = useState({
-    convencional: '', fora_ponta: '', intermediaria: '', ponta: '',
-  })
+  const [arquivos, setArquivos] = useState<FaturaArquivo[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingMsg, setLoadingMsg] = useState('')
-  const [senhaModal, setSenhaModal] = useState(false)
-  const [pendingFile, setPendingFile] = useState<any>(null)
-  const [concessionaria, setConcessionaria] = useState<string | null>(null)
+  // muda quando os dados chegam do banco, para os campos da tabela (não controlados) mostrarem o valor salvo
+  const [carga, setCarga] = useState(0)
+  const [pronto, setPronto] = useState(false)
+  // senha única por insumo, digitada antes ou depois do envio; vale para todas as faturas daquela aba
+  const [senhas, setSenhas] = useState<Partial<Record<Insumo, string>>>({})
+  const chaveSenhas = `A1-senhas-${atendimentoId}`
 
-  useEffect(() => {
-    loadData()
-  }, [atendimentoId])
+  useEffect(() => { loadData() }, [atendimentoId])
 
   const loadData = async () => {
-    const [data, at, emp] = await Promise.all([
-      getHistoricoConsumo(atendimentoId),
-      getAtendimentoById(atendimentoId),
-      getEmpresa(empresaId),
-    ])
-    setHistorico((prev) => ({
-      energia_eletrica: data.energia_eletrica?.length ? data.energia_eletrica : prev.energia_eletrica,
-      glp:             data.glp?.length             ? data.glp             : prev.glp,
-      gas_natural:     data.gas_natural?.length     ? data.gas_natural     : prev.gas_natural,
-      lenha:           data.lenha?.length           ? data.lenha           : prev.lenha,
-      biomassa:        data.biomassa?.length        ? data.biomassa        : prev.biomassa,
-    }))
-    if (at?.bt_ou_at) setBtOuAt(at.bt_ou_at === 'AT')
-    if (at?.horarios_concessionaria) setHorarios(at.horarios_concessionaria as any)
-    if (at?.tarifas_branca) setTarifas(at.tarifas_branca as any)
-    setConcessionaria(emp?.concessionaria ?? null)
-  }
-
-  const handleUploadFatura = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: 'application/pdf',
-      multiple: true,
-    })
-    if (result.canceled) return
-
-    for (const file of result.assets) {
-      setLoadingMsg(`Processando ${file.name}...`)
-      setLoading(true)
-      try {
-        await processarFatura(file, undefined)
-      } catch (e: any) {
-        if (e.message?.includes('encrypted') || e.message?.includes('senha')) {
-          setPendingFile(file)
-          setSenhaModal(true)
-          setLoading(false)
-          return
-        }
-        Alert.alert('Erro', e.message)
-      } finally {
-        setLoading(false)
+    try {
+      const [data, lista, senhasSalvas] = await Promise.all([
+        getHistoricoConsumo(atendimentoId), listarFaturasArquivo(empresaId), lerRascunho<Partial<Record<Insumo, string>>>(chaveSenhas),
+      ])
+      // sem rascunho (versão anterior do app): a senha geral começa com a última senha informada em cada aba
+      const iniciais: Partial<Record<Insumo, string>> = { ...(senhasSalvas ?? {}) }
+      if (!senhasSalvas) for (const ins of INSUMOS) {
+        const ultima = [...lista].reverse().find((f) => f.insumo === ins.key && f.senha)?.senha
+        if (ultima) iniciais[ins.key] = ultima
       }
-    }
-  }
-
-  const processarFatura = async (file: any, senha?: string) => {
-    const dados = await extrairFatura(
-      { uri: file.uri, name: file.name, type: 'application/pdf' },
-      senha,
-      undefined
-    )
-
-    if (dados.historico_12_meses?.length > 0 && activeTab === 'energia_eletrica') {
-      const novosMeses: HistoricoMes[] = dados.historico_12_meses.map((h: any) => ({
-        mes: h.mes.split('/').reverse().join('-').slice(0, 7),
-        consumo: h.consumo_kwh ?? null,
-        valor: null,
+      setSenhas(iniciais)
+      setHistorico((prev) => ({
+        glp: data.glp?.length ? data.glp : prev.glp,
+        gas_natural: data.gas_natural?.length ? data.gas_natural : prev.gas_natural,
+        lenha: data.lenha?.length ? data.lenha : prev.lenha,
+        biomassa: data.biomassa?.length ? data.biomassa : prev.biomassa,
       }))
-      setHistorico((prev) => ({ ...prev, energia_eletrica: novosMeses }))
+      setArquivos(lista)
+      setCarga((n) => n + 1)
+      setPronto(true)
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message ?? 'Não foi possível carregar os dados.')
     }
   }
 
-  const handleSenhaConfirm = async (senha: string) => {
-    setSenhaModal(false)
-    if (!pendingFile) return
+  const doInsumo = arquivos.filter((a) => a.insumo === activeTab)
+
+  // A tabela dos outros insumos e as senhas das faturas gravam sozinhas, sem depender do botão Salvar
+  // arquivos apagados nesta tela: uma gravação que já estava em curso não pode trazê-los de volta
+  const removidos = useRef(new Set<string>())
+  const gravarTudo = async ({ h, a, s }: { h: typeof historico; a: FaturaArquivo[]; s: typeof senhas }) => {
+    await gravarRascunho(chaveSenhas, s)
+    for (const insumo of OUTROS) await upsertHistoricoConsumo(atendimentoId, insumo, h[insumo])
+    for (const f of a) if (!removidos.current.has(f.id)) await salvarFaturaArquivo(empresaId, atendimentoId, { ...f, senha: f.senha?.trim() ? f.senha.trim() : null })
+  }
+  const estadoTela = useMemo(() => ({ h: historico, a: arquivos, s: senhas }), [historico, arquivos, senhas])
+  useAutoSalvar(estadoTela, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
+
+  const handleEnviar = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], multiple: true, copyToCacheDirectory: true })
+    if (result.canceled) return
+    setLoadingMsg('Guardando arquivos...')
     setLoading(true)
     try {
-      await processarFatura(pendingFile, senha)
+      // a senha costuma ser a mesma em todas as faturas da unidade: as novas herdam a última informada
+      const senhaPadrao = senhas[activeTab]?.trim() || ([...doInsumo].reverse().find((a) => a.senha)?.senha ?? null)
+      for (const file of result.assets) {
+        const caminho = await guardarArquivo(file.uri, empresaId, file.name)
+        await salvarFaturaArquivo(empresaId, atendimentoId, {
+          arquivo_path: caminho, nome_arquivo: file.name, mes_referencia: null, senha: senhaPadrao, insumo: activeTab,
+        })
+      }
+      await updateAtendimento(atendimentoId, { status_modulos: { A1: true } })
+      marcarModuloConcluido('A1')
+      setArquivos(await listarFaturasArquivo(empresaId))
+      sincronizarEmSegundoPlano(empresaId)
     } catch (e: any) {
-      Alert.alert('Erro', 'Senha incorreta ou PDF inválido.')
+      Alert.alert('Erro', e?.message ?? 'Não foi possível guardar os arquivos.')
     } finally {
       setLoading(false)
-      setPendingFile(null)
     }
   }
 
-  const updateMes = (insumo: Insumo, index: number, field: 'consumo' | 'valor', value: string) => {
+  // a senha geral vale para todas as faturas da aba; cada fatura ainda pode ter a sua logo abaixo
+  const handleSenhaGeral = (senha: string) => {
+    setSenhas((p) => ({ ...p, [activeTab]: senha }))
+    setArquivos((p) => p.map((a) => (a.insumo === activeTab ? { ...a, senha } : a)))
+  }
+
+  const handleSenha = (id: string, senha: string) => setArquivos((p) => p.map((a) => (a.id === id ? { ...a, senha } : a)))
+
+  const gravarSenha = async (a: FaturaArquivo) => {
+    try {
+      await salvarFaturaArquivo(empresaId, atendimentoId, { ...a, senha: a.senha?.trim() ? a.senha.trim() : null })
+      sincronizarEmSegundoPlano(empresaId)
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message ?? 'Não foi possível gravar a senha.')
+    }
+  }
+
+  const handleRemover = (a: FaturaArquivo) => {
+    Alert.alert('Remover arquivo', `Remover "${a.nome_arquivo ?? 'arquivo'}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Remover', style: 'destructive',
+        onPress: async () => {
+          try {
+            removidos.current.add(a.id)
+            await excluirFaturaArquivo(a.id)
+            if (a.arquivo_path) await apagarArquivo(a.arquivo_path).catch(() => {})
+            setArquivos((p) => p.filter((x) => x.id !== a.id))
+            sincronizarEmSegundoPlano(empresaId)
+          } catch (e: any) {
+            Alert.alert('Erro', e?.message ?? 'Não foi possível remover.')
+          }
+        },
+      },
+    ])
+  }
+
+  const updateMes = (insumo: OutroInsumo, index: number, field: 'consumo' | 'valor', value: string) => {
     const num = value === '' ? null : parseFloat(value.replace(',', '.'))
     setHistorico((prev) => ({
       ...prev,
-      [insumo]: prev[insumo].map((m, i) => (i === index ? { ...m, [field]: num } : m)),
+      [insumo]: prev[insumo].map((m, i) => (i === index ? { ...m, [field]: Number.isNaN(num as number) ? null : num } : m)),
     }))
   }
 
@@ -169,241 +182,133 @@ export default function A1_HistoricoConsumoScreen() {
     setLoading(true)
     setLoadingMsg('Salvando...')
     try {
-      for (const insumo of Object.keys(historico) as Insumo[]) {
-        await upsertHistoricoConsumo(atendimentoId, insumo, historico[insumo])
-      }
-      await updateAtendimento(atendimentoId, {
-        bt_ou_at: btOuAt ? 'AT' : 'BT',
-        horarios_concessionaria: horarios,
-        tarifas_branca: tarifas,
-        status_modulos: { A1: true },
-      })
+      for (const insumo of OUTROS) await upsertHistoricoConsumo(atendimentoId, insumo, historico[insumo])
+      await updateAtendimento(atendimentoId, { status_modulos: { A1: true } })
+      await marcarInicio(atendimentoId)
       marcarModuloConcluido('A1')
-      Alert.alert('Salvo!', 'Histórico de consumo salvo com sucesso.')
+      sincronizarEmSegundoPlano(empresaId)
+      Alert.alert('Salvo!', 'Histórico de consumo salvo.')
     } catch (e: any) {
-      Alert.alert('Erro', e.message)
+      Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')
     } finally {
       setLoading(false)
     }
   }
 
   const activeData = INSUMOS.find((i) => i.key === activeTab)!
-  const meses = historico[activeTab]
+  const ehEnergia = activeTab === 'energia_eletrica'
+  const meses = ehEnergia ? [] : historico[activeTab as OutroInsumo]
 
   return (
     <>
       <KeyboardScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-        {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs}>
           {INSUMOS.map((ins) => (
-            <TouchableOpacity
-              key={ins.key}
-              style={[styles.tab, activeTab === ins.key && styles.tabActive]}
-              onPress={() => setActiveTab(ins.key)}
-            >
-              <Text style={[styles.tabText, activeTab === ins.key && styles.tabTextActive]}>
-                {ins.label}
-              </Text>
+            <TouchableOpacity key={ins.key} style={[styles.tab, activeTab === ins.key && styles.tabActive]} onPress={() => setActiveTab(ins.key)}>
+              <Text style={[styles.tabText, activeTab === ins.key && styles.tabTextActive]}>{ins.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* Upload para EE */}
-        {activeTab === 'energia_eletrica' && (
-          <>
-            <TouchableOpacity style={styles.uploadBtn} onPress={handleUploadFatura}>
-              <Text style={styles.uploadText}>📎  Enviar Faturas (até 12 PDFs)</Text>
-            </TouchableOpacity>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Tipo de tensão:</Text>
-              <TouchableOpacity
-                style={[styles.optBtn, !btOuAt && styles.optBtnActive]}
-                onPress={() => setBtOuAt(false)}
-              >
-                <Text style={[styles.optText, !btOuAt && styles.optTextActive]}>BT</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.optBtn, btOuAt && styles.optBtnActive]}
-                onPress={() => setBtOuAt(true)}
-              >
-                <Text style={[styles.optText, btOuAt && styles.optTextActive]}>AT</Text>
-              </TouchableOpacity>
-            </View>
+        <TouchableOpacity style={styles.uploadBtn} onPress={handleEnviar}>
+          <Text style={styles.uploadText}>{ehEnergia ? '📎  Enviar Faturas (até 12 PDFs)' : `📎  Enviar Faturas / Notas de ${activeData.label}`}</Text>
+        </TouchableOpacity>
 
-            <SectionHeader title="HORÁRIOS DA CONCESSIONÁRIA" />
-            <View style={styles.fieldRow}>
-              <View style={{ flex: 1 }}>
-                <TF label="Fora Ponta (início h)" v={horarios.fora_ponta_inicio} on={(v) => setHorarios((h) => ({ ...h, fora_ponta_inicio: v }))} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TF label="Fora Ponta (fim h)" v={horarios.fora_ponta_fim} on={(v) => setHorarios((h) => ({ ...h, fora_ponta_fim: v }))} />
-              </View>
-            </View>
-            <View style={styles.fieldRow}>
-              <View style={{ flex: 1 }}>
-                <TF label="Ponta (início h)" v={horarios.ponta_inicio} on={(v) => setHorarios((h) => ({ ...h, ponta_inicio: v }))} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TF label="Ponta (fim h)" v={horarios.ponta_fim} on={(v) => setHorarios((h) => ({ ...h, ponta_fim: v }))} />
-              </View>
-            </View>
-            <View style={styles.fieldRow}>
-              <View style={{ flex: 1 }}>
-                <TF label="Intermediária 1 (início h)" v={horarios.intermediario1_inicio} on={(v) => setHorarios((h) => ({ ...h, intermediario1_inicio: v }))} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TF label="Intermediária 1 (fim h)" v={horarios.intermediario1_fim} on={(v) => setHorarios((h) => ({ ...h, intermediario1_fim: v }))} />
-              </View>
-            </View>
-            <View style={styles.fieldRow}>
-              <View style={{ flex: 1 }}>
-                <TF label="Intermediária 2 (início h)" v={horarios.intermediario2_inicio} on={(v) => setHorarios((h) => ({ ...h, intermediario2_inicio: v }))} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TF label="Intermediária 2 (fim h)" v={horarios.intermediario2_fim} on={(v) => setHorarios((h) => ({ ...h, intermediario2_fim: v }))} />
-              </View>
-            </View>
+        <Text style={styles.senhaRotulo}>Senha das faturas (se tiverem senha)</Text>
+        <TextInput
+          style={[styles.senha, { marginBottom: 12 }]}
+          value={senhas[activeTab] ?? ''}
+          onChangeText={handleSenhaGeral}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
-            <SectionHeader title="TARIFAS (R$/kWh)" />
-            <View style={styles.fieldRow}>
-              <View style={{ flex: 1 }}>
-                <TF label="Convencional" v={tarifas.convencional} on={(v) => setTarifas((t) => ({ ...t, convencional: v }))} num />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TF label="Fora Ponta" v={tarifas.fora_ponta} on={(v) => setTarifas((t) => ({ ...t, fora_ponta: v }))} num />
-              </View>
-            </View>
-            <View style={styles.fieldRow}>
-              <View style={{ flex: 1 }}>
-                <TF label="Intermediária" v={tarifas.intermediaria} on={(v) => setTarifas((t) => ({ ...t, intermediaria: v }))} num />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TF label="Ponta" v={tarifas.ponta} on={(v) => setTarifas((t) => ({ ...t, ponta: v }))} num />
-              </View>
-            </View>
-          </>
+        {ehEnergia && doInsumo.length === 0 && (
+          <AlertBanner type="info" message="Envie as faturas de energia. O histórico, as tarifas e os horários são preenchidos a partir delas." />
         )}
 
-        <SectionHeader title={`${activeData.label} (${activeData.unit})`} />
-
-        {/* Tabela de meses */}
-        <View style={styles.tableHeader}>
-          <Text style={[styles.th, { flex: 2 }]}>Mês</Text>
-          <Text style={[styles.th, { flex: 2 }]}>Consumo ({activeData.unit})</Text>
-          <Text style={[styles.th, { flex: 2 }]}>Valor (R$)</Text>
-          <Text style={[styles.th, { flex: 2 }]}>Média (R$/{activeData.unit})</Text>
-        </View>
-        {meses.map((mes, i) => {
-          const media =
-            mes.consumo && mes.valor && mes.consumo > 0
-              ? (mes.valor / mes.consumo).toFixed(4)
-              : '-'
-          return (
-            <View key={i} style={styles.tableRow}>
-              <Text style={[styles.td, { flex: 2 }]}>{formatMesAno(mes.mes)}</Text>
+        {doInsumo.map((a) => (
+          <View key={a.id} style={styles.arquivo}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.arquivoNome} numberOfLines={1}>📄 {a.nome_arquivo ?? 'arquivo'}</Text>
+              {/* o texto que ficava dentro do campo virou rótulo, para o campo não ficar sem nome */}
+              <Text style={styles.senhaRotulo}>Senha do PDF (se tiver)</Text>
               <TextInput
-                style={[styles.tdInput, { flex: 2 }]}
-                value={mes.consumo?.toString() ?? ''}
-                onChangeText={(v) => updateMes(activeTab, i, 'consumo', v)}
-                keyboardType="decimal-pad"
-                placeholder="0"
+                style={styles.senha}
+                value={a.senha ?? ''}
+                onChangeText={(v) => handleSenha(a.id, v)}
+                onEndEditing={() => gravarSenha(a)}
+                placeholderTextColor={Colors.grayMid}
+                autoCapitalize="none"
               />
-              <TextInput
-                style={[styles.tdInput, { flex: 2 }]}
-                value={mes.valor?.toString() ?? ''}
-                onChangeText={(v) => updateMes(activeTab, i, 'valor', v)}
-                keyboardType="decimal-pad"
-                placeholder="0,00"
-              />
-              <Text style={[styles.td, { flex: 2, textAlign: 'right' }]}>{media}</Text>
             </View>
-          )
-        })}
+            <TouchableOpacity onPress={() => handleRemover(a)} style={styles.remover} accessibilityLabel="Remover arquivo">
+              <Text style={styles.removerTexto}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
 
-        <Button title="Salvar Módulo A1" onPress={handleSalvar} fullWidth style={{ marginTop: 20, marginBottom: 40 }} />
+        {!ehEnergia && (
+          <>
+            <SectionHeader title={`${activeData.label} (${activeData.unit})`} />
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { flex: 2 }]}>Mês</Text>
+              <Text style={[styles.th, { flex: 2 }]}>Consumo ({activeData.unit})</Text>
+              <Text style={[styles.th, { flex: 2 }]}>Valor (R$)</Text>
+              <Text style={[styles.th, { flex: 2 }]}>Média (R$/{activeData.unit})</Text>
+            </View>
+            {meses.map((mes, i) => {
+              const media = mes.consumo && mes.valor && mes.consumo > 0 ? (mes.valor / mes.consumo).toFixed(4) : '-'
+              return (
+                <View key={`${activeTab}-${carga}-${i}`} style={styles.tableRow}>
+                  <Text style={[styles.td, { flex: 2 }]}>{formatMesAno(mes.mes)}</Text>
+                  <TextInput
+                    style={[styles.tdInput, { flex: 2 }]}
+                    defaultValue={mes.consumo?.toString() ?? ''}
+                    onChangeText={(v) => updateMes(activeTab as OutroInsumo, i, 'consumo', v)}
+                    keyboardType="decimal-pad"
+                    placeholderTextColor={Colors.grayMid}
+                  />
+                  <TextInput
+                    style={[styles.tdInput, { flex: 2 }]}
+                    defaultValue={mes.valor?.toString() ?? ''}
+                    onChangeText={(v) => updateMes(activeTab as OutroInsumo, i, 'valor', v)}
+                    keyboardType="decimal-pad"
+                    placeholderTextColor={Colors.grayMid}
+                  />
+                  <Text style={[styles.td, { flex: 2, textAlign: 'right' }]}>{media}</Text>
+                </View>
+              )
+            })}
+            <Button title="Salvar Módulo A1" onPress={handleSalvar} fullWidth style={{ marginTop: 20 }} />
+          </>
+        )}
+        <View style={{ height: 40 }} />
       </KeyboardScrollView>
-
-      <SenhaModal
-        visible={senhaModal}
-        onConfirm={handleSenhaConfirm}
-        onCancel={() => { setSenhaModal(false); setPendingFile(null) }}
-        concessionaria={concessionaria}
-      />
       <LoadingOverlay visible={loading} message={loadingMsg || 'Aguarde...'} />
     </>
-  )
-}
-
-function TF({ label, v, on, num }: { label: string; v: string; on: (x: string) => void; num?: boolean }) {
-  return (
-    <View style={{ marginBottom: 8 }}>
-      <Text style={{ fontSize: 12, color: Colors.gray, marginBottom: 3 }}>{label}</Text>
-      <TextInput
-        value={v}
-        onChangeText={on}
-        keyboardType={num ? 'decimal-pad' : 'default'}
-        style={{ borderWidth: 1.5, borderColor: Colors.grayMid, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, backgroundColor: Colors.white }}
-        placeholder={num ? '0,0000' : 'hh:mm'}
-      />
-    </View>
   )
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.white },
   container: { padding: 12 },
-  tabs: { flexDirection: 'row', marginBottom: 12 },
-  tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.grayLight,
-    marginRight: 8,
-  },
-  tabActive: { backgroundColor: Colors.blue },
-  tabText: { fontSize: 13, color: Colors.gray, fontWeight: '600' },
+  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  tab: { paddingHorizontal: 18, minHeight: 48, justifyContent: 'center', borderRadius: 24, borderWidth: 2, borderColor: Colors.grayMid, backgroundColor: Colors.white },
+  tabActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
+  tabText: { fontSize: 16, color: Colors.gray, fontWeight: '700' },
   tabTextActive: { color: Colors.white },
-  uploadBtn: {
-    backgroundColor: Colors.blueLight,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  uploadText: { color: Colors.blueDark, fontWeight: '700', fontSize: 15 },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  toggleLabel: { fontSize: 14, color: Colors.gray, flex: 1 },
-  optBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: Colors.grayMid,
-  },
-  optBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  optText: { fontWeight: '700', color: Colors.gray },
-  optTextActive: { color: Colors.primaryDark },
-  tableHeader: { flexDirection: 'row', backgroundColor: Colors.blue, borderRadius: 6, padding: 8, marginBottom: 2 },
-  th: { fontSize: 11, fontWeight: '700', color: Colors.white, textAlign: 'center' },
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.grayLight,
-  },
-  td: { fontSize: 13, color: Colors.black, textAlign: 'center', paddingHorizontal: 2 },
-  fieldRow: { flexDirection: 'row', gap: 10 },
-  tdInput: {
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: Colors.grayMid,
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    textAlign: 'center',
-    marginHorizontal: 2,
-    backgroundColor: Colors.white,
-  },
+  uploadBtn: { backgroundColor: Colors.blueLight, borderWidth: 2, borderColor: Colors.blue, borderRadius: 10, minHeight: 56, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  uploadText: { color: Colors.blueDark, fontWeight: '700', fontSize: 18 },
+  arquivo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.grayLight, borderRadius: 10, padding: 12, marginBottom: 8 },
+  arquivoNome: { fontSize: 16, fontWeight: '600', color: Colors.black, marginBottom: 6 },
+  senhaRotulo: { fontSize: 14, color: Colors.gray, marginBottom: 4 },
+  senha: { borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 10, paddingHorizontal: 12, minHeight: 48, fontSize: 16, color: Colors.black, backgroundColor: Colors.white },
+  remover: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
+  removerTexto: { color: Colors.danger, fontSize: 20, fontWeight: '700' },
+  tableHeader: { flexDirection: 'row', backgroundColor: Colors.blue, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 4, marginBottom: 2 },
+  th: { fontSize: 14, fontWeight: '700', color: Colors.white, textAlign: 'center' },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: Colors.grayMid },
+  td: { fontSize: 15, color: Colors.black, textAlign: 'center', paddingHorizontal: 2, fontVariant: ['tabular-nums'] },
+  tdInput: { fontSize: 16, color: Colors.black, borderWidth: 2, borderColor: Colors.grayMid, borderRadius: 8, paddingHorizontal: 4, minHeight: 48, textAlign: 'center', marginHorizontal: 2, backgroundColor: Colors.white },
 })

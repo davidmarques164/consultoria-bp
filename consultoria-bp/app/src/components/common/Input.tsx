@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { View, Text, TextInput, StyleSheet, TextInputProps } from 'react-native'
-import { Colors } from '../../constants/colors'
+import { Cor, Campo, Texto, Espaco } from '../../constants/tema'
 import { formatCNPJ, formatPhone, formatCEP } from '../../utils/formatters'
 
 type Mask = 'cnpj' | 'phone' | 'cep' | 'date' | 'none'
@@ -58,7 +58,8 @@ export default function Input({
           !editable && styles.disabled,
           multiline && styles.multiline,
         ]}
-        placeholderTextColor={Colors.grayMid}
+        placeholderTextColor={Campo.placeholder}
+        accessibilityLabel={label}
         {...rest}
       />
       {hint && !error && <Text style={styles.hint}>{hint}</Text>}
@@ -68,22 +69,24 @@ export default function Input({
 }
 
 const styles = StyleSheet.create({
-  wrapper: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: Colors.gray, marginBottom: 4 },
+  wrapper: { marginBottom: Espaco.md },
+  label: { ...Texto.rotulo, marginBottom: 6 },
   input: {
-    borderWidth: 1.5,
-    borderColor: Colors.grayMid,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: Colors.black,
-    backgroundColor: Colors.white,
+    borderWidth: Campo.larguraBorda,
+    borderColor: Campo.borda,
+    borderRadius: Campo.raio,
+    paddingHorizontal: Campo.paddingHorizontal,
+    paddingVertical: 12,
+    minHeight: Campo.altura,
+    fontSize: Texto.corpo.fontSize,
+    color: Cor.texto,
+    backgroundColor: Campo.fundo,
   },
-  focused: { borderColor: Colors.primary },
-  errorBorder: { borderColor: Colors.danger },
-  disabled: { backgroundColor: Colors.grayLight, color: Colors.gray },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
-  hint: { fontSize: 12, color: Colors.gray, marginTop: 3 },
-  errorText: { fontSize: 12, color: Colors.danger, marginTop: 3 },
+  // borda mais grossa: tira 1 px do padding para o texto não pular
+  focused: { borderColor: Campo.bordaFoco, borderWidth: Campo.larguraBordaAtiva, paddingHorizontal: Campo.paddingHorizontal - 1 },
+  errorBorder: { borderColor: Campo.bordaErro, borderWidth: Campo.larguraBordaAtiva, paddingHorizontal: Campo.paddingHorizontal - 1 },
+  disabled: { backgroundColor: Cor.superficie, color: Cor.textoSecundario },
+  multiline: { minHeight: 96, textAlignVertical: 'top' },
+  hint: { ...Texto.legenda, marginTop: 4 },
+  errorText: { fontSize: 15, lineHeight: 20, fontWeight: '600', color: Cor.erro, marginTop: 4 },
 })

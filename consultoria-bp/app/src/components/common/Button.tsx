@@ -1,13 +1,12 @@
 import React from 'react'
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   ActivityIndicator,
   StyleSheet,
   ViewStyle,
-  TextStyle,
 } from 'react-native'
-import { Colors } from '../../constants/colors'
+import { Botao, Texto, Toque, Raio, Borda, Cor } from '../../constants/tema'
 
 type Variant = 'primary' | 'secondary' | 'outline' | 'danger'
 
@@ -22,23 +21,11 @@ interface Props {
   style?: ViewStyle
 }
 
-const variantStyles: Record<Variant, { container: ViewStyle; text: TextStyle }> = {
-  primary: {
-    container: { backgroundColor: Colors.primary },
-    text: { color: Colors.white },
-  },
-  secondary: {
-    container: { backgroundColor: Colors.blue },
-    text: { color: Colors.white },
-  },
-  outline: {
-    container: { backgroundColor: 'transparent', borderWidth: 2, borderColor: Colors.primary },
-    text: { color: Colors.primary },
-  },
-  danger: {
-    container: { backgroundColor: Colors.danger },
-    text: { color: Colors.white },
-  },
+const variantes: Record<Variant, (typeof Botao)[keyof typeof Botao]> = {
+  primary: Botao.primario,
+  secondary: Botao.secundario,
+  outline: Botao.contorno,
+  danger: Botao.perigo,
 }
 
 export default function Button({
@@ -51,41 +38,45 @@ export default function Button({
   fullWidth = false,
   style,
 }: Props) {
-  const vStyle = variantStyles[variant]
+  const v = variantes[variant]
+  const inativo = disabled || loading
+
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
-      disabled={disabled || loading}
-      style={[
+      disabled={inativo}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: inativo, busy: loading }}
+      style={({ pressed }) => [
         styles.base,
-        vStyle.container,
+        { backgroundColor: pressed ? v.pressionado : v.fundo },
+        v.borda && { borderWidth: Borda.campo, borderColor: v.borda },
         fullWidth && styles.fullWidth,
-        (disabled || loading) && styles.disabled,
+        disabled && !loading && styles.disabled,
         style,
       ]}
-      activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? Colors.primary : Colors.white} />
+        <ActivityIndicator color={v.texto} />
       ) : (
-        <Text style={[styles.text, vStyle.text]}>
+        <Text style={[styles.text, { color: disabled ? Cor.textoDesabilitado : v.texto }]}>
           {icon ? `${icon}  ` : ''}{title}
         </Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 10,
+    borderRadius: Raio.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 50,
+    minHeight: Toque.botao,
   },
   fullWidth: { width: '100%' },
-  disabled: { opacity: 0.5 },
-  text: { fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  disabled: { backgroundColor: Cor.superficie, borderWidth: Borda.campo, borderColor: Cor.borda, borderStyle: 'dashed' },
+  text: { ...Texto.botao, textAlign: 'center' },
 })

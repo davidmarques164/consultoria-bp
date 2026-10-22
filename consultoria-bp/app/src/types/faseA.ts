@@ -1,20 +1,25 @@
 /** Registros da fase A como ficam no SQLite (ids uuid, fotos como caminhos locais do aparelho). */
-import { OrigemPotencia, PeriodoMedicao, Sistema, TipoCarga, TipoTarifario } from './atendimentoJson'
+import { ModoUso, OrigemPotencia, UnidadePotencia, PeriodoMedicao, Sistema, TipoCarga, TipoTarifario } from './atendimentoJson'
 
 export interface Carga {
   id: string
   atendimento_id: string
   ordem: number
-  tipo: TipoCarga
-  descricao: string
+  tipo: TipoCarga | null
+  descricao: string | null
   local: string | null
-  potencia_w: number
+  potencia_w: number | null
+  /** Unidade em que a potência foi digitada; o valor fica sempre em watts. */
+  potencia_unidade: UnidadePotencia
   potencia_origem: OrigemPotencia
   quantidade: number
   em_uso: boolean
   dias_semana: number | null
   dias_mes: number | null
   intervalos: [string, string][]
+  modo_uso: ModoUso
+  /** Horas por dia no uso pontual. */
+  horas_dia: number | null
   uso_final: string | null
   fotos: string[]
 }
@@ -24,7 +29,9 @@ export interface Intervencao {
   atendimento_id: string
   ordem: number
   sistema: Sistema
-  acao: string
+  acao: string | null
+  equipamento: string | null
+  proposta: string | null
   descricao: string | null
   carga_ids: string[]
   quantidade_modificada: number | null
@@ -65,6 +72,8 @@ export interface FaturaArquivo {
   nome_arquivo: string | null
   mes_referencia: string | null
   senha: string | null
+  /** 'energia_eletrica' ou a chave de um dos outros insumos (glp, gas_natural, lenha, biomassa). */
+  insumo: string
 }
 
 /** Campos do atendimento usados na fase A (colunas novas + as que já existiam). */
@@ -81,4 +90,14 @@ export interface AtendimentoFaseA {
   geracao_solar: boolean | null
   observacao_consumo: string | null
   consumo_medio_informado_kwh_mes: number | null
+  data_aceitacao: string | null
+  data_execucao: string | null
+  data_encerramento: string | null
+  cidade_dr: string | null
+  estado_dr: string | null
+  nome_uo: string | null
+  /** Abas de sistema (A5 a A13) marcadas como "não se aplica". */
+  sistemas_nao_aplicaveis: string[]
+  /** Horários de funcionamento como digitados na tela (FormFuncionamento). */
+  funcionamento: unknown | null
 }

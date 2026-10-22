@@ -17,10 +17,10 @@ export default function SectionHeader({ title, color = Colors.blue }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
     paddingLeft: 10,
     marginBottom: 12,
     marginTop: 20,
   },
-  text: { fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
+  text: { fontSize: 18, lineHeight: 24, fontWeight: '700', letterSpacing: 0.2 },
 })

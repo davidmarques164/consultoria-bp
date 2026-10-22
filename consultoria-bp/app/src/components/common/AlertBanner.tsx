@@ -6,9 +6,9 @@ type AlertType = 'info' | 'warning' | 'success' | 'danger'
 
 const typeConfig: Record<AlertType, { bg: string; border: string; text: string; icon: string }> = {
   info: { bg: Colors.blueLight, border: Colors.blue, text: Colors.blueDark, icon: 'ℹ️' },
-  warning: { bg: '#FFF8E1', border: Colors.yellow, text: '#7A5B00', icon: '⚠️' },
-  success: { bg: Colors.primaryLight, border: Colors.primary, text: Colors.primaryDark, icon: '✅' },
-  danger: { bg: '#FDECEA', border: Colors.danger, text: '#9B1C1C', icon: '❌' },
+  warning: { bg: Colors.warningLight, border: Colors.yellow, text: Colors.warningText, icon: '⚠️' },
+  success: { bg: Colors.primaryLight, border: Colors.brandGreen, text: Colors.primaryDark, icon: '✅' },
+  danger: { bg: Colors.dangerLight, border: Colors.danger, text: Colors.dangerText, icon: '❌' },
 }
 
 interface Props {
@@ -29,11 +29,11 @@ export default function AlertBanner({ type = 'info', message }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    borderLeftWidth: 4,
-    borderRadius: 6,
-    paddingVertical: 10,
+    borderLeftWidth: 6,
+    borderRadius: 10,
+    paddingVertical: 14,
     paddingHorizontal: 14,
     marginVertical: 8,
   },
-  text: { fontSize: 14, lineHeight: 20 },
+  text: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
 })

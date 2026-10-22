@@ -21,6 +21,6 @@ export default function EmptyState({ icon = '📋', title, subtitle }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   icon: { fontSize: 48, marginBottom: 16 },
-  title: { fontSize: 18, fontWeight: '700', color: Colors.black, textAlign: 'center' },
-  subtitle: { fontSize: 14, color: Colors.gray, textAlign: 'center', marginTop: 8 },
+  title: { fontSize: 21, fontWeight: '700', color: Colors.black, textAlign: 'center' },
+  subtitle: { fontSize: 16, lineHeight: 22, color: Colors.gray, textAlign: 'center', marginTop: 8 },
 })

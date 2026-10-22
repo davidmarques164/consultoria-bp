@@ -27,4 +27,7 @@ export interface Empresa {
   created_at: string
   updated_at: string
   consultor_email: string
+  /** Cartão CNPJ enviado no cadastro: caminho no aparelho e nome original do arquivo. */
+  cartao_cnpj_path?: string | null
+  cartao_cnpj_nome?: string | null
 }

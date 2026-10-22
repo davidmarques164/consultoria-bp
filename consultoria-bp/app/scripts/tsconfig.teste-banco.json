@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "expo-sqlite": ["scripts/stubs/expo-sqlite.ts"],
+      "expo-crypto": ["scripts/stubs/expo-crypto.ts"],
+      "expo-secure-store": ["scripts/stubs/expo-secure-store.ts"],
+      "expo-file-system/legacy": ["scripts/stubs/expo-file-system-legacy.ts"],
+      "@react-native-community/netinfo": ["scripts/stubs/netinfo.ts"],
+      "@react-native-async-storage/async-storage": ["scripts/stubs/async-storage.ts"],
+      "@react-native-google-signin/google-signin": ["scripts/stubs/google-signin.ts"]
+    }
+  }
+}

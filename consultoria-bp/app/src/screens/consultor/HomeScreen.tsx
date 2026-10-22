@@ -4,15 +4,16 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Image,
   Alert,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import { AppStackParamList } from '../../navigation/types'
 import { useAuthStore } from '../../store/authStore'
 import { signOut } from '../../services/googleAuth'
+import { VERSAO_APP } from '../../constants/versao'
 import { Colors } from '../../constants/colors'
 
 type Nav = StackNavigationProp<AppStackParamList>
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<Nav>()
   const consultor = useAuthStore((s) => s.consultor)
   const clearConsultor = useAuthStore((s) => s.clearConsultor)
+  const insets = useSafeAreaInsets()
 
   const handleLogout = () => {
     Alert.alert('Sair', 'Deseja encerrar a sessão?', [
@@ -37,9 +39,9 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
+    <View style={styles.safe}>
+      {/* Header: começa abaixo da barra de status do celular */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.consultorInfo}>
           {consultor?.foto ? (
             <Image source={{ uri: consultor.foto }} style={styles.avatar} />
@@ -48,9 +50,9 @@ export default function HomeScreen() {
               <Text style={styles.avatarLetter}>{consultor?.nome?.[0] ?? 'C'}</Text>
             </View>
           )}
-          <View>
-            <Text style={styles.consultorNome}>{consultor?.nome ?? 'Consultor'}</Text>
-            <Text style={styles.consultorSub}>Consultoria em Eficiência Energética</Text>
+          <View style={styles.consultorTexto}>
+            <Text style={styles.consultorNome} numberOfLines={1}>{consultor?.nome ?? 'Consultor'}</Text>
+            <Text style={styles.consultorSub} numberOfLines={1}>Consultoria em Eficiência Energética</Text>
           </View>
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
@@ -83,8 +85,9 @@ export default function HomeScreen() {
         >
           <Text style={styles.secondaryText}>✅  Empresas Finalizadas</Text>
         </TouchableOpacity>
+        <Text style={styles.versao}>Versão {VERSAO_APP}</Text>
       </View>
-    </SafeAreaView>
+    </View>
   )
 }
 
@@ -98,16 +101,19 @@ function BigButton({ icon, label, onPress, color }: { icon: string; label: strin
 }
 
 const styles = StyleSheet.create({
+  versao: { textAlign: 'center', fontSize: 14, color: Colors.gray, marginTop: 24 },
   safe: { flex: 1, backgroundColor: Colors.grayLight },
   header: {
     backgroundColor: Colors.primary,
-    padding: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
-  consultorInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  consultorInfo: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  consultorTexto: { flex: 1, minWidth: 0 },
   avatar: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: Colors.white },
   avatarPlaceholder: {
     width: 46,
@@ -118,16 +124,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarLetter: { fontSize: 20, fontWeight: '700', color: Colors.white },
-  consultorNome: { fontSize: 16, fontWeight: '700', color: Colors.white },
-  consultorSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
-  logoutBtn: { padding: 8 },
-  logoutText: { color: Colors.white, fontSize: 14, fontWeight: '600' },
+  consultorNome: { fontSize: 17, fontWeight: '700', color: Colors.white },
+  consultorSub: { fontSize: 14, color: Colors.white },
+  logoutBtn: { flexShrink: 0, minHeight: 44, minWidth: 56, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.white, borderRadius: 10 },
+  logoutText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
   body: { flex: 1, padding: 24, justifyContent: 'center', gap: 16 },
-  welcome: { fontSize: 24, fontWeight: '800', color: Colors.black, textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: Colors.gray, textAlign: 'center', marginBottom: 24 },
+  welcome: { fontSize: 26, fontWeight: '800', color: Colors.black, textAlign: 'center', marginBottom: 4 },
+  subtitle: { fontSize: 16, color: Colors.gray, textAlign: 'center', marginBottom: 24 },
   bigBtn: {
     borderRadius: 14,
-    paddingVertical: 22,
+    minHeight: 72,
+    paddingVertical: 18,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -138,16 +145,17 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   bigBtnIcon: { fontSize: 28 },
-  bigBtnLabel: { fontSize: 18, fontWeight: '700', color: Colors.white, flex: 1 },
+  bigBtnLabel: { fontSize: 19, fontWeight: '700', color: Colors.white, flex: 1 },
   secondaryBtn: {
     alignSelf: 'center',
-    paddingVertical: 12,
+    minHeight: 56,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    borderRadius: 20,
+    borderRadius: 28,
     backgroundColor: Colors.white,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: Colors.primary,
     marginTop: 4,
   },
-  secondaryText: { fontSize: 15, color: Colors.primary, fontWeight: '600' },
+  secondaryText: { fontSize: 17, color: Colors.primary, fontWeight: '700' },
 })

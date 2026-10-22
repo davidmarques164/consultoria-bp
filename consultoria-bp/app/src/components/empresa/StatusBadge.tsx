@@ -5,7 +5,7 @@ import { Colors } from '../../constants/colors'
 type Status = 'cadastrada' | 'em_atendimento' | 'finalizada'
 
 const config: Record<Status, { bg: string; text: string; label: string }> = {
-  cadastrada: { bg: Colors.grayLight, text: Colors.gray, label: 'Cadastrada' },
+  cadastrada: { bg: Colors.white, text: Colors.gray, label: 'Cadastrada' },
   em_atendimento: { bg: Colors.blueLight, text: Colors.blueDark, label: 'Em Atendimento' },
   finalizada: { bg: Colors.primaryLight, text: Colors.primaryDark, label: 'Finalizada' },
 }
@@ -17,13 +17,13 @@ interface Props {
 export default function StatusBadge({ status }: Props) {
   const cfg = config[status] ?? config.cadastrada
   return (
-    <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
+    <View style={[styles.badge, { backgroundColor: cfg.bg, borderColor: cfg.text }]}>
       <Text style={[styles.text, { color: cfg.text }]}>{cfg.label}</Text>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  badge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start' },
-  text: { fontSize: 12, fontWeight: '700' },
+  badge: { borderRadius: 14, borderWidth: 2, paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start' },
+  text: { fontSize: 14, fontWeight: '700' },
 })
