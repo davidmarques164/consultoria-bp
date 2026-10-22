@@ -1,5 +1,5 @@
 # Gera o APK do app do celular sem usar a cota de builds do Expo.
-# Roda pelo botão "Run workflow" na aba Actions (e em tag v*). O APK fica em Artifacts; numa tag vira Release.
+# Roda a cada push que mexe no app, pelo botão "Run workflow" na aba Actions e em tag v*. O APK fica em Artifacts; numa tag vira Release.
 # Segredos (ver docs/APK_GITHUB.md): ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
 # ANDROID_KEY_PASSWORD e, se o app usar, GOOGLE_SERVICES_JSON (conteúdo do google-services.json).
 name: App do celular (APK)
@@ -7,7 +7,11 @@ name: App do celular (APK)
 on:
   workflow_dispatch:
   push:
+    branches: [main, exe-desktop]
     tags: ['v*']
+    paths:
+      - 'consultoria-bp/app/**'
+      - '.github/workflows/apk-android.yml'
 
 permissions:
   contents: write
