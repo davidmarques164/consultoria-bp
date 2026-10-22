@@ -24,3 +24,4 @@ código saiu um APK, veja a coluna "Git ref" na lista de builds do expo.dev.
 | 1.5.2 | exe-desktop | A1: uma senha só por aba, para todas as faturas daquela aba (sai o campo de senha de cada arquivo); APK gerado também pelo GitHub Actions, sem a cota do Expo (`docs/APK_GITHUB.md`) |
 | 1.5.3 | exe-desktop | Programa do Windows: retiradas as frases explicativas do painel, do login e da barra lateral |
 | 1.5.4 | exe-desktop | Fotos: tocar na miniatura amplia a foto; remover só pelo ✕. Programa do Windows: ao escolher imagem, se houver imagem copiada, oferece colar |
+| 1.6.0 | exe-desktop | Botão "Finalizar aba" abaixo do Salvar em todas as abas (celular e PC): a aba só conta como finalizada por ele ou por "não se aplica"; finalizada, vira "Reabrir aba". PC: barra lateral com as empresas em atendimento e, na empresa aberta, as abas (✓ nas finalizadas). Correção: abrir a empresa em duas telas ao mesmo tempo não cria dois atendimentos |

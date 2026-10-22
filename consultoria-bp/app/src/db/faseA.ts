@@ -65,6 +65,32 @@ export async function marcarSistemaNaoAplicavel(atendimentoId: string, aba: stri
   await marcarInicio(atendimentoId)
 }
 
+// ── ABAS FINALIZADAS ────────────────────────────────────────────────────────
+
+/** Abas finalizadas: as do botão "Finalizar aba" e as marcadas "não se aplica". */
+export function abasFinalizadasDaLinha(r: { abas_finalizadas?: string | null; sistemas_nao_aplicaveis?: string | null } | null | undefined): Record<string, boolean> {
+  const res: Record<string, boolean> = {}
+  for (const a of lista<string[]>(r?.abas_finalizadas, [])) res[a] = true
+  for (const a of lista<string[]>(r?.sistemas_nao_aplicaveis, [])) res[a] = true
+  return res
+}
+
+export async function lerAbasFinalizadas(atendimentoId: string): Promise<Record<string, boolean>> {
+  const db = await getDB()
+  return abasFinalizadasDaLinha(await db.getFirstAsync<any>('SELECT abas_finalizadas, sistemas_nao_aplicaveis FROM atendimentos WHERE id = ?', [atendimentoId]))
+}
+
+/** Botão "Finalizar aba" (true) ou "Reabrir aba" (false). */
+export async function definirAbaFinalizada(atendimentoId: string, aba: string, finalizada: boolean): Promise<void> {
+  const db = await getDB()
+  const r = await db.getFirstAsync<{ abas_finalizadas: string | null }>('SELECT abas_finalizadas FROM atendimentos WHERE id = ?', [atendimentoId])
+  const atuais = new Set(lista<string[]>(r?.abas_finalizadas, []))
+  if (finalizada) atuais.add(aba)
+  else atuais.delete(aba)
+  await db.runAsync('UPDATE atendimentos SET abas_finalizadas = ?, updated_at = ? WHERE id = ?', [JSON.stringify([...atuais].sort()), agora(), atendimentoId])
+  await marcarInicio(atendimentoId)
+}
+
 /** Conclusão confirmada: grava (ou substitui) a data de fim e move a empresa para finalizadas. */
 export async function concluirAtendimento(atendimentoId: string, empresaId: string): Promise<string> {
   const db = await getDB()

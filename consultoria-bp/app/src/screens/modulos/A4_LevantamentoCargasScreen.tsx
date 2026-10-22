@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import BotaoFinalizarAba from '../../components/atendimento/BotaoFinalizarAba'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useRoute } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
@@ -119,14 +120,14 @@ export default function A4_LevantamentoCargasScreen() {
     ])
   }
 
-  const handleSalvar = async () => {
+  const handleSalvar = async (silencioso = false): Promise<boolean> => {
     const preenchidos = cartoes.filter((c) => !formCargaEmBranco(c))
     const comErro = preenchidos
       .map((c, i) => ({ n: i + 1, erros: cargaDoForm(c, atendimentoId).problemas.filter((p) => p.nivel === 'erro') }))
       .filter((x) => x.erros.length > 0)
     if (comErro.length > 0) {
       Alert.alert('Corrija antes de salvar', comErro.map((x) => `Carga ${x.n}: ${x.erros.map((e) => e.mensagem).join(' ')}`).join('\n\n'))
-      return
+      return false
     }
     setLoading(true)
     try {
@@ -137,9 +138,11 @@ export default function A4_LevantamentoCargasScreen() {
       const lista = await listarCargas(atendimentoId)
       setSalvas(Object.fromEntries(lista.map((x) => [x.id, x])))
       sincronizarEmSegundoPlano(empresaId)
-      Alert.alert('Salvo!', `${preenchidos.length} carga(s) salva(s).`)
+      if (!silencioso) Alert.alert('Salvo!', `${preenchidos.length} carga(s) salva(s).`)
+      return true
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')
+      return false
     } finally {
       setLoading(false)
     }
@@ -227,7 +230,8 @@ export default function A4_LevantamentoCargasScreen() {
           <Text style={styles.addBtnText}>➕  Adicionar carga</Text>
         </TouchableOpacity>
 
-        <Button title="Salvar Módulo A4" onPress={handleSalvar} fullWidth style={{ marginTop: 16, marginBottom: 40 }} />
+        <Button title="Salvar Módulo A4" onPress={() => handleSalvar()} fullWidth style={{ marginTop: 16 }} />
+        <BotaoFinalizarAba empresaId={empresaId} atendimentoId={atendimentoId} aba="A4" salvar={() => handleSalvar(true)} />
       </KeyboardScrollView>
       <LoadingOverlay visible={loading} message="Salvando..." />
     </>

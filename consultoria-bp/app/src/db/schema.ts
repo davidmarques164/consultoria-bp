@@ -111,6 +111,8 @@ async function migrarFaseA(db: Banco) {
   await addColumnIfMissing(db, 'cargas', 'horas_dia', 'REAL')
   // sincronia entre aparelhos (celular e computador) pela pasta do Drive: última alteração local e a
   // última que este aparelho sabe estar no Drive (ver services/estadoEmpresa.ts)
+  // abas finalizadas pelo botão "Finalizar aba" (as marcadas "não se aplica" também contam como finalizadas)
+  await addColumnIfMissing(db, 'atendimentos', 'abas_finalizadas', 'TEXT')
   await addColumnIfMissing(db, 'empresas', 'alterado_em', 'TEXT')
   await addColumnIfMissing(db, 'empresas', 'sincronizado_em', 'TEXT')
   await db.execAsync(`CREATE TABLE IF NOT EXISTS rascunhos (chave TEXT PRIMARY KEY, conteudo TEXT NOT NULL, updated_at TEXT)`)

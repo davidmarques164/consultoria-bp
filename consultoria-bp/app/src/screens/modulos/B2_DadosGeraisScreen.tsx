@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { StyleSheet, Alert } from 'react-native'
+import BotaoFinalizarAba from '../../components/atendimento/BotaoFinalizarAba'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useRoute } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
@@ -66,10 +67,10 @@ export default function B2_DadosGeraisScreen() {
     setPronto(true)
   }
 
-  const handleSalvar = async () => {
+  const handleSalvar = async (silencioso = false): Promise<boolean> => {
     if (!form.consultor_1) {
       Alert.alert('Atenção', 'Nome do consultor é obrigatório.')
-      return
+      return false
     }
     setLoading(true)
     try {
@@ -80,9 +81,11 @@ export default function B2_DadosGeraisScreen() {
       await marcarInicio(atendimentoId)
       marcarModuloConcluido('B2')
       sincronizarEmSegundoPlano(empresaId)
-      Alert.alert('Salvo!', 'Dados gerais da consultoria salvos.')
+      if (!silencioso) Alert.alert('Salvo!', 'Dados gerais da consultoria salvos.')
+      return true
     } catch (e: any) {
       Alert.alert('Erro', e.message)
+      return false
     } finally {
       setLoading(false)
     }
@@ -108,7 +111,8 @@ export default function B2_DadosGeraisScreen() {
         <Input label="Cidade do DR" value={form.cidade_dr} onChange={(v) => set('cidade_dr', v)} />
         <Input label="Estado do DR" value={form.estado_dr} onChange={(v) => set('estado_dr', v.toUpperCase())} maxLength={2} />
 
-        <Button title="Salvar Módulo B2" onPress={handleSalvar} fullWidth style={{ marginTop: 24, marginBottom: 40 }} />
+        <Button title="Salvar Módulo B2" onPress={() => handleSalvar()} fullWidth style={{ marginTop: 24 }} />
+        <BotaoFinalizarAba empresaId={empresaId} atendimentoId={atendimentoId} aba="B2" salvar={() => handleSalvar(true)} />
       </KeyboardScrollView>
       <LoadingOverlay visible={loading} message="Salvando..." />
     </>

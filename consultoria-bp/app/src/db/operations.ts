@@ -2,7 +2,9 @@ import { getDB } from './schema'
 import { Empresa } from '../types/empresa'
 import { DadosAtendimento, HistoricoMes } from '../types/atendimento'
 import { novoId } from '../utils/id'
+import { criarSerie } from '../utils/serie'
 import { marcarAtendimentoAlterado, marcarEmpresaAlterada } from './alteracoes'
+import { abasFinalizadasDaLinha } from './faseA'
 
 // ── EMPRESAS ────────────────────────────────────────────────────────────────
 
@@ -55,11 +57,11 @@ export async function listEmpresas(consultor_email: string): Promise<Empresa[]> 
   )
 }
 
-/** Módulos concluídos (status_modulos do atendimento mais recente) de cada empresa do consultor. */
+/** Abas finalizadas (botão "Finalizar aba" ou "não se aplica") do atendimento mais recente de cada empresa do consultor. */
 export async function statusModulosPorEmpresa(consultor_email: string): Promise<Record<string, Record<string, boolean>>> {
   const db = await getDB()
-  const rows = await db.getAllAsync<{ empresa_id: string; status_modulos: string | null }>(
-    `SELECT a.empresa_id, a.status_modulos FROM atendimentos a
+  const rows = await db.getAllAsync<{ empresa_id: string; abas_finalizadas: string | null; sistemas_nao_aplicaveis: string | null }>(
+    `SELECT a.empresa_id, a.abas_finalizadas, a.sistemas_nao_aplicaveis FROM atendimentos a
        JOIN empresas e ON e.id = a.empresa_id
       WHERE e.consultor_email = ?
       ORDER BY a.created_at`,
@@ -67,7 +69,7 @@ export async function statusModulosPorEmpresa(consultor_email: string): Promise<
   )
   const res: Record<string, Record<string, boolean>> = {}
   for (const r of rows) {
-    try { res[r.empresa_id] = r.status_modulos ? JSON.parse(r.status_modulos) : {} } catch { res[r.empresa_id] = {} }
+    res[r.empresa_id] = abasFinalizadasDaLinha(r)
   }
   return res
 }
@@ -94,7 +96,14 @@ async function createAtendimento(data: Partial<DadosAtendimento> & { empresa_id:
   return id
 }
 
-export async function getOrCreateAtendimento(
+// uma chamada por empresa de cada vez: duas telas abrindo juntas (ou tela e envio ao Drive) não criam dois atendimentos
+const atendimentoEmSerie = criarSerie()
+
+export function getOrCreateAtendimento(empresa_id: string, defaults: Partial<DadosAtendimento>): Promise<string> {
+  return atendimentoEmSerie(empresa_id, () => obterOuCriarAtendimento(empresa_id, defaults))
+}
+
+async function obterOuCriarAtendimento(
   empresa_id: string,
   defaults: Partial<DadosAtendimento>
 ): Promise<string> {
@@ -141,7 +150,8 @@ export async function getAtendimento(empresa_id: string): Promise<DadosAtendimen
 }
 
 function deserializeAtendimento(row: any): DadosAtendimento {
-  return { ...row, status_modulos: row.status_modulos ? JSON.parse(row.status_modulos) : {} }
+  // status_modulos = abas finalizadas (a coluna antiga, marcada sozinha ao preencher, não é mais usada)
+  return { ...row, status_modulos: abasFinalizadasDaLinha(row) }
 }
 
 // ── HISTÓRICO DE CONSUMO ─────────────────────────────────────────────────────

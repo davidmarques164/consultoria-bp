@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native'
+import BotaoFinalizarAba from '../../components/atendimento/BotaoFinalizarAba'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import * as DocumentPicker from 'expo-document-picker'
 import { useRoute } from '@react-navigation/native'
@@ -168,7 +169,7 @@ export default function A1_HistoricoConsumoScreen() {
     }))
   }
 
-  const handleSalvar = async () => {
+  const handleSalvar = async (silencioso = false): Promise<boolean> => {
     setLoading(true)
     setLoadingMsg('Salvando...')
     try {
@@ -177,9 +178,11 @@ export default function A1_HistoricoConsumoScreen() {
       await marcarInicio(atendimentoId)
       marcarModuloConcluido('A1')
       sincronizarEmSegundoPlano(empresaId)
-      Alert.alert('Salvo!', 'Histórico de consumo salvo.')
+      if (!silencioso) Alert.alert('Salvo!', 'Histórico de consumo salvo.')
+      return true
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')
+      return false
     } finally {
       setLoading(false)
     }
@@ -260,10 +263,10 @@ export default function A1_HistoricoConsumoScreen() {
                 </View>
               )
             })}
-            <Button title="Salvar Módulo A1" onPress={handleSalvar} fullWidth style={{ marginTop: 20 }} />
           </>
         )}
-        <View style={{ height: 40 }} />
+        <Button title="Salvar Módulo A1" onPress={() => handleSalvar()} fullWidth style={{ marginTop: 20 }} />
+        <BotaoFinalizarAba empresaId={empresaId} atendimentoId={atendimentoId} aba="A1" salvar={() => handleSalvar(true)} />
       </KeyboardScrollView>
       <LoadingOverlay visible={loading} message={loadingMsg || 'Aguarde...'} />
     </>

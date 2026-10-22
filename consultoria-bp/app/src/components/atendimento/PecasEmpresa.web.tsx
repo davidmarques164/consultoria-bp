@@ -115,7 +115,7 @@ function CartaoModulo({ modulo, concluido, onPress }: { modulo: Modulo; concluid
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${modulo.semChave ? '' : modulo.key + ' '}${modulo.label}${concluido ? ', concluído' : ''}`}
+      accessibilityLabel={`${modulo.semChave ? '' : modulo.key + ' '}${modulo.label}${concluido ? ', finalizada' : ''}`}
       style={({ hovered }: any) => [styles.modulo, concluido && styles.moduloConcluido, hovered && styles.moduloHover]}
     >
       <View style={styles.moduloTopo}>
@@ -127,8 +127,8 @@ function CartaoModulo({ modulo, concluido, onPress }: { modulo: Modulo; concluid
       <Text style={styles.moduloTitulo} numberOfLines={2}>{modulo.label}</Text>
       <View style={styles.moduloEstado}>
         {concluido
-          ? <><Icone nome="check" tamanho={14} cor={Cor.primaria} espessura={2.6} /><Text style={[styles.moduloEstadoTexto, { color: Cor.primaria }]}>Preenchido</Text></>
-          : <Text style={styles.moduloEstadoTexto}>A preencher</Text>}
+          ? <><Icone nome="check" tamanho={14} cor={Cor.primaria} espessura={2.6} /><Text style={[styles.moduloEstadoTexto, { color: Cor.primaria }]}>Finalizada</Text></>
+          : <Text style={styles.moduloEstadoTexto}>Em aberto</Text>}
       </View>
     </Pressable>
   )

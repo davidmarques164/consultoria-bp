@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import BotaoFinalizarAba from '../../components/atendimento/BotaoFinalizarAba'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useRoute } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
@@ -55,14 +56,16 @@ export default function FuncionamentoScreen() {
   const alterarTurno = (dia: ChaveDia, k: number, campo: 'inicio' | 'fim', v: string) =>
     setForm((f) => ({ ...f, [dia]: { ...f[dia], turnos: f[dia].turnos.map((t, j) => (j === k ? { ...t, [campo]: v } : t)) } }))
 
-  const handleSalvar = async () => {
+  const handleSalvar = async (silencioso = false): Promise<boolean> => {
     try {
       await gravar(form)
       sincronizarEmSegundoPlano(empresaId)
       const p = problemasDoFuncionamento(form)
-      Alert.alert('Salvo!', p.length > 0 ? `Horários salvos. Confira:\n\n${p.join('\n')}` : 'Horários de funcionamento salvos.')
+      if (!silencioso) Alert.alert('Salvo!', p.length > 0 ? `Horários salvos. Confira:\n\n${p.join('\n')}` : 'Horários de funcionamento salvos.')
+      return true
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')
+      return false
     }
   }
 
@@ -111,7 +114,8 @@ export default function FuncionamentoScreen() {
 
       {problemas.map((p, k) => <Text key={k} style={styles.alerta}>• {p}</Text>)}
 
-      <Button title="Salvar horários" onPress={handleSalvar} fullWidth style={{ marginTop: 16, marginBottom: 40 }} />
+      <Button title="Salvar horários" onPress={() => handleSalvar()} fullWidth style={{ marginTop: 16 }} />
+      <BotaoFinalizarAba empresaId={empresaId} atendimentoId={atendimentoId} aba={CHAVE_FUNCIONAMENTO} salvar={() => handleSalvar(true)} />
     </KeyboardScrollView>
   )
 }

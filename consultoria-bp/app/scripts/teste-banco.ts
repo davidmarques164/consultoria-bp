@@ -10,6 +10,7 @@ import { createEmpresa, getAtendimento, getEmpresa, getOrCreateAtendimento, upda
 import {
   excluirCarga, excluirFaturaArquivo, excluirIntervencao, getAtendimentoFaseA, listarCargas, listarFaturasArquivo, listarIntervencoes,
   marcarSistemaNaoAplicavel, salvarCarga, salvarFuncionamento, salvarFaturaArquivo, salvarIntervencao,
+  definirAbaFinalizada, lerAbasFinalizadas,
 } from '../src/db/faseA'
 import { exportarAtendimento } from '../src/services/exportAtendimento'
 import { CONFIG_SISTEMAS } from '../src/constants/sistemas'
@@ -100,7 +101,17 @@ async function main() {
   // ── B2 e marcas de módulo ─────────────────────────────────────────────────
   await updateAtendimento(atendimentoId, { consultor_2: 'Segundo Consultor', data_aceitacao: '15/09/2026', numero_proposta: '2026/001', status_modulos: { B2: true } })
   await updateAtendimento(atendimentoId, { status_modulos: { A4: true, A7: true } })
-  assert.deepEqual((await getAtendimento(empresaId))?.status_modulos, { B2: true, A4: true, A7: true })
+  // aba só fica finalizada pelo botão "Finalizar aba" ou por "não se aplica" (A7); salvar não finaliza
+  assert.deepEqual((await getAtendimento(empresaId))?.status_modulos, { A7: true })
+  await definirAbaFinalizada(atendimentoId, 'A4', true)
+  await definirAbaFinalizada(atendimentoId, 'B2', true)
+  await definirAbaFinalizada(atendimentoId, 'B2', false)
+  assert.deepEqual((await getAtendimento(empresaId))?.status_modulos, { A4: true, A7: true })
+  assert.deepEqual(await lerAbasFinalizadas(atendimentoId), { A4: true, A7: true })
+  const [ja, jb] = await Promise.all([
+    getOrCreateAtendimento(empresaId, { status_modulos: {} }), getOrCreateAtendimento(empresaId, { status_modulos: {} }),
+  ])
+  assert.equal(ja, jb, 'duas telas abrindo juntas usam o mesmo atendimento')
 
   // ── atendimento.json montado a partir do banco ────────────────────────────
   const pacote = await exportarAtendimento(empresaId, atendimentoId, { nome: 'Consultor Exemplo', email: 'consultor@exemplo.com' })

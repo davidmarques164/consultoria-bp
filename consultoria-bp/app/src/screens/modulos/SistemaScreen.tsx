@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { useAbasStore } from '../../store/abasStore'
+import BotaoFinalizarAba from '../../components/atendimento/BotaoFinalizarAba'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useRoute } from '@react-navigation/native'
 import { Colors } from '../../constants/colors'
@@ -115,6 +117,7 @@ export default function SistemaScreen() {
       await marcarSistemaNaoAplicavel(atendimentoId, cfg.aba, novo)
       await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: novo || Object.keys(salvas).length > 0 } })
       if (novo) marcarModuloConcluido(cfg.aba)
+      useAbasStore.getState().avisar()
       sincronizarEmSegundoPlano(empresaId)
     } catch (e: any) {
       setNaoAplicavel(!novo)
@@ -144,14 +147,14 @@ export default function SistemaScreen() {
     ])
   }
 
-  const handleSalvar = async () => {
+  const handleSalvar = async (silencioso = false): Promise<boolean> => {
     const preenchidos = naoAplicavel ? [] : cartoes.filter((c) => !formIntervencaoEmBranco(c))
     const comErro = preenchidos
       .map((c, i) => ({ n: i + 1, erros: converter(c).problemas.filter((p) => p.nivel === 'erro') }))
       .filter((x) => x.erros.length > 0)
     if (comErro.length > 0) {
       Alert.alert('Corrija antes de salvar', comErro.map((x) => `${cfg.item} ${x.n}: ${x.erros.map((e) => e.mensagem).join(' ')}`).join('\n\n'))
-      return
+      return false
     }
     setLoading(true)
     try {
@@ -163,9 +166,11 @@ export default function SistemaScreen() {
       const lista = (await listarIntervencoes(atendimentoId)).filter((i) => i.sistema === cfg.sistema)
       setSalvas(Object.fromEntries(lista.map((x) => [x.id, x])))
       sincronizarEmSegundoPlano(empresaId)
-      Alert.alert('Salvo!', naoAplicavel ? `${cfg.titulo}: marcado como não aplicável.` : `${cfg.titulo}: ${preenchidos.length} item(ns) salvo(s).`)
+      if (!silencioso) Alert.alert('Salvo!', naoAplicavel ? `${cfg.titulo}: marcado como não aplicável.` : `${cfg.titulo}: ${preenchidos.length} item(ns) salvo(s).`)
+      return true
     } catch (e: any) {
       Alert.alert('Erro', e?.message ?? 'Não foi possível salvar.')
+      return false
     } finally {
       setLoading(false)
     }
@@ -207,7 +212,8 @@ export default function SistemaScreen() {
           </>
         )}
 
-        <Button title={`Salvar Módulo ${cfg.aba}`} onPress={handleSalvar} fullWidth style={{ marginTop: 16, marginBottom: 40 }} />
+        <Button title={`Salvar Módulo ${cfg.aba}`} onPress={() => handleSalvar()} fullWidth style={{ marginTop: 16 }} />
+        <BotaoFinalizarAba empresaId={empresaId} atendimentoId={atendimentoId} aba={cfg.aba} salvar={() => handleSalvar(true)} naoSeAplica={naoAplicavel} />
       </KeyboardScrollView>
       <LoadingOverlay visible={loading} message="Salvando..." />
     </>
