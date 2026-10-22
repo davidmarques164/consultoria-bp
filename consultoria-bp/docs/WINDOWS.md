@@ -50,8 +50,8 @@ Cloud do app do celular (o do cliente `847964133995-...`).
 2. Tipo de aplicativo: **App para computador**. Nome: `Consultoria B+P Windows`. Criar.
 3. Copie o **ID do cliente** e a **Chave secreta do cliente**.
 4. No GitHub, repositório `consultoria-bp` → **Settings → Secrets and variables → Actions → New repository secret**:
-   - `BP_GOOGLE_CLIENT_ID` = ID do cliente
-   - `BP_GOOGLE_CLIENT_SECRET` = chave secreta
+   `BP_GOOGLE_CLIENT_SECRET` = chave secreta. O ID do cliente (`847964133995-dvqm…`) não é segredo e já está no
+   código (`desktop/scripts/versao.js`); o segredo `BP_GOOGLE_CLIENT_ID`, se existir, tem prioridade.
 5. Em **Tela de consentimento OAuth → Usuários de teste**, os e-mails dos consultores precisam estar na
    lista enquanto o app estiver em modo de teste (o mesmo vale para o celular).
 

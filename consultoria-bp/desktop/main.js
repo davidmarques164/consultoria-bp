@@ -132,7 +132,7 @@ let acesso = { token: null, expiraEm: 0 }
 function clienteOAuth() {
   let cfg = {}
   try { cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'oauth.json'), 'utf8')) } catch { /* sem arquivo */ }
-  const id = process.env.BP_GOOGLE_CLIENT_ID || cfg.client_id
+  const id = process.env.BP_GOOGLE_CLIENT_ID || cfg.client_id || '847964133995-dvqmgqf42fe8140kc87l0jblmdjcln1a.apps.googleusercontent.com'
   const segredo = process.env.BP_GOOGLE_CLIENT_SECRET || cfg.client_secret
   if (!id || !segredo) throw new Error('Login Google não configurado neste programa (falta o cliente OAuth "App para computador"). Veja docs/WINDOWS.md.')
   return { id, segredo }
