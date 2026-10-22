@@ -103,7 +103,8 @@ export default function A1_HistoricoConsumoScreen() {
   const gravarTudo = async ({ h, a, s }: { h: typeof historico; a: FaturaArquivo[]; s: typeof senhas }) => {
     await gravarRascunho(chaveSenhas, s)
     for (const insumo of OUTROS) await upsertHistoricoConsumo(atendimentoId, insumo, h[insumo])
-    for (const f of a) if (!removidos.current.has(f.id)) await salvarFaturaArquivo(empresaId, atendimentoId, { ...f, senha: f.senha?.trim() ? f.senha.trim() : null })
+    // uma senha só por aba: todas as faturas daquele insumo ficam com a senha da aba
+    for (const f of a) if (!removidos.current.has(f.id)) await salvarFaturaArquivo(empresaId, atendimentoId, { ...f, senha: s[f.insumo as Insumo]?.trim() || null })
   }
   const estadoTela = useMemo(() => ({ h: historico, a: arquivos, s: senhas }), [historico, arquivos, senhas])
   useAutoSalvar(estadoTela, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
@@ -114,8 +115,8 @@ export default function A1_HistoricoConsumoScreen() {
     setLoadingMsg('Guardando arquivos...')
     setLoading(true)
     try {
-      // a senha costuma ser a mesma em todas as faturas da unidade: as novas herdam a última informada
-      const senhaPadrao = senhas[activeTab]?.trim() || ([...doInsumo].reverse().find((a) => a.senha)?.senha ?? null)
+      // uma senha só por aba: as faturas novas recebem a senha da aba
+      const senhaPadrao = senhas[activeTab]?.trim() || null
       for (const file of result.assets) {
         const caminho = await guardarArquivo(file.uri, empresaId, file.name)
         await salvarFaturaArquivo(empresaId, atendimentoId, {
@@ -133,21 +134,10 @@ export default function A1_HistoricoConsumoScreen() {
     }
   }
 
-  // a senha geral vale para todas as faturas da aba; cada fatura ainda pode ter a sua logo abaixo
+  // a senha da aba vale para todas as faturas dela (as faturas de uma unidade costumam ter a mesma senha)
   const handleSenhaGeral = (senha: string) => {
     setSenhas((p) => ({ ...p, [activeTab]: senha }))
     setArquivos((p) => p.map((a) => (a.insumo === activeTab ? { ...a, senha } : a)))
-  }
-
-  const handleSenha = (id: string, senha: string) => setArquivos((p) => p.map((a) => (a.id === id ? { ...a, senha } : a)))
-
-  const gravarSenha = async (a: FaturaArquivo) => {
-    try {
-      await salvarFaturaArquivo(empresaId, atendimentoId, { ...a, senha: a.senha?.trim() ? a.senha.trim() : null })
-      sincronizarEmSegundoPlano(empresaId)
-    } catch (e: any) {
-      Alert.alert('Erro', e?.message ?? 'Não foi possível gravar a senha.')
-    }
   }
 
   const handleRemover = (a: FaturaArquivo) => {
@@ -214,7 +204,7 @@ export default function A1_HistoricoConsumoScreen() {
           <Text style={styles.uploadText}>{ehEnergia ? '📎  Enviar Faturas (até 12 PDFs)' : `📎  Enviar Faturas / Notas de ${activeData.label}`}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.senhaRotulo}>Senha das faturas (se tiverem senha)</Text>
+        <Text style={styles.senhaRotulo}>Senha das faturas (se tiverem senha) — vale para todas as faturas desta aba</Text>
         <TextInput
           style={[styles.senha, { marginBottom: 12 }]}
           value={senhas[activeTab] ?? ''}
@@ -230,17 +220,7 @@ export default function A1_HistoricoConsumoScreen() {
         {doInsumo.map((a) => (
           <View key={a.id} style={styles.arquivo}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.arquivoNome} numberOfLines={1}>📄 {a.nome_arquivo ?? 'arquivo'}</Text>
-              {/* o texto que ficava dentro do campo virou rótulo, para o campo não ficar sem nome */}
-              <Text style={styles.senhaRotulo}>Senha do PDF (se tiver)</Text>
-              <TextInput
-                style={styles.senha}
-                value={a.senha ?? ''}
-                onChangeText={(v) => handleSenha(a.id, v)}
-                onEndEditing={() => gravarSenha(a)}
-                placeholderTextColor={Colors.grayMid}
-                autoCapitalize="none"
-              />
+              <Text style={[styles.arquivoNome, { marginBottom: 0 }]} numberOfLines={1}>📄 {a.nome_arquivo ?? 'arquivo'}</Text>
             </View>
             <TouchableOpacity onPress={() => handleRemover(a)} style={styles.remover} accessibilityLabel="Remover arquivo">
               <Text style={styles.removerTexto}>✕</Text>
