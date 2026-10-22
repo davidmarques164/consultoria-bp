@@ -142,7 +142,7 @@ function BarraLateral({ ativo, ir }: { ativo: keyof AppStackParamList; ir: (r: k
           <Icone nome="sincronizar" tamanho={18} cor="#FFFFFF" />
           <View style={{ flex: 1 }}>
             <Text style={styles.sincronizarTexto}>{sincronizando ? 'Sincronizando…' : 'Sincronizar com o Drive'}</Text>
-            <Text style={styles.sincronizarSub}>{ultima ? `Verificado às ${ultima}` : 'Envia e recebe do celular'}</Text>
+            {!!ultima && <Text style={styles.sincronizarSub}>Verificado às {ultima}</Text>}
           </View>
         </Pressable>
 

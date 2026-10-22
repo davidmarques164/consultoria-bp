@@ -55,7 +55,7 @@ export default function HomeScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.data}>{hoje.charAt(0).toUpperCase() + hoje.slice(1)}</Text>
           <Text style={styles.titulo}>{saudacao()}{primeiroNome ? `, ${primeiroNome}` : ''}</Text>
-          <Text style={styles.subtitulo}>Brasil Mais Produtivo · Programa de Eficiência Energética</Text>
+          <Text style={styles.subtitulo}>Eficiência Energética · Brasil Mais Produtivo</Text>
         </View>
         <Pressable
           onPress={() => navigation.navigate('NovaEmpresa')}
@@ -94,7 +94,6 @@ export default function HomeScreen() {
           <View style={styles.vazio}>
             <View style={styles.vazioIcone}><Icone nome="predio" tamanho={28} cor={Cor.textoSecundario} /></View>
             <Text style={styles.vazioTitulo}>Nenhuma empresa em atendimento</Text>
-            <Text style={styles.vazioTexto}>Cadastre uma empresa aqui ou no celular — as do celular aparecem sozinhas depois de salvas com internet.</Text>
           </View>
         ) : (
           <View>

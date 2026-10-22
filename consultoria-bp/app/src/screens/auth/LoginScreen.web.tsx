@@ -12,10 +12,10 @@ import { Cor, Marca, Sombra } from '../../constants/tema'
 import { VERSAO_APP } from '../../constants/versao'
 import Icone, { LogoGoogle, NomeIcone } from '../../plataforma/Icone.web'
 
-const RECURSOS: { icone: NomeIcone; titulo: string; texto: string }[] = [
-  { icone: 'predio', titulo: 'Atendimento completo', texto: 'Cartão CNPJ, faturas, cargas e intervenções de cada empresa.' },
-  { icone: 'nuvem', titulo: 'Tudo no Google Drive', texto: 'Cada empresa tem a sua pasta, pronta para o relatório.' },
-  { icone: 'sincronizar', titulo: 'Junto com o celular', texto: 'Comece em campo e termine no computador, ou o contrário.' },
+const RECURSOS: { icone: NomeIcone; titulo: string }[] = [
+  { icone: 'predio', titulo: 'Cartão CNPJ, faturas, cargas e intervenções' },
+  { icone: 'nuvem', titulo: 'Pasta de cada empresa no Google Drive' },
+  { icone: 'sincronizar', titulo: 'Sincronizado com o celular' },
 ]
 
 export default function LoginScreen() {
@@ -52,14 +52,12 @@ export default function LoginScreen() {
           </View>
           <View>
             <Text style={styles.painelTitulo}>Eficiência energética{'\n'}para a indústria.</Text>
-            <Text style={styles.painelTexto}>O programa do Windows tem as mesmas funções do app do celular e trabalha na mesma pasta do Drive.</Text>
             <View style={styles.recursos}>
               {RECURSOS.map((r) => (
                 <View key={r.titulo} style={styles.recurso}>
                   <View style={styles.recursoIcone}><Icone nome={r.icone} tamanho={18} cor="#FFFFFF" /></View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.recursoTitulo}>{r.titulo}</Text>
-                    <Text style={styles.recursoTexto}>{r.texto}</Text>
                   </View>
                 </View>
               ))}
@@ -73,7 +71,7 @@ export default function LoginScreen() {
         <View style={styles.cartao}>
           <Image source={require('../../../assets/images/login_logo.webp')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.titulo}>Entrar</Text>
-          <Text style={styles.subtitulo}>Use a conta Google em que estão as pastas das empresas. O login abre no seu navegador.</Text>
+          <View style={{ height: 20 }} />
           <Pressable
             onPress={entrar}
             disabled={carregando}
@@ -83,7 +81,7 @@ export default function LoginScreen() {
             {carregando ? <ActivityIndicator color={Cor.secundaria} /> : <LogoGoogle tamanho={20} />}
             <Text style={styles.botaoTexto}>{carregando ? 'Aguardando o navegador…' : 'Entrar com Google'}</Text>
           </Pressable>
-          {carregando && <Text style={styles.dica}>Conclua o login na janela do navegador e volte para cá.</Text>}
+          
         </View>
         <Text style={styles.versao}>Consultoria B+P para Windows · Versão {VERSAO_APP}</Text>
       </View>
@@ -99,8 +97,8 @@ const styles = StyleSheet.create({
   painelMarcaTexto: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   painelTitulo: { color: '#FFFFFF', fontSize: 38, lineHeight: 46, fontWeight: '700', letterSpacing: -0.5, maxWidth: 520 },
   painelTexto: { color: '#D6E4F2', fontSize: 16, lineHeight: 24, marginTop: 16, maxWidth: 480 },
-  recursos: { gap: 18, marginTop: 32, maxWidth: 460 },
-  recurso: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+  recursos: { gap: 14, marginTop: 32, maxWidth: 460 },
+  recurso: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   recursoIcone: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
   recursoTitulo: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   recursoTexto: { color: '#C9D9EA', fontSize: 14, lineHeight: 20, marginTop: 2 },
