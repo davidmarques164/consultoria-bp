@@ -21,6 +21,12 @@ const { DatabaseSync } = require('node:sqlite')
 const ORIGEM_APP = 'app://bp'
 const PREFIXO_ARQUIVOS = 'bpfile://local/fase_a/'
 const PASTA_WEB = path.join(__dirname, 'web')
+/** Só o código do próprio programa roda; imagens podem vir dos arquivos guardados e da foto do Google. */
+const CSP = [
+  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' bpfile: data: blob: https://*.googleusercontent.com", "font-src 'self' data:",
+  "connect-src 'self' bpfile: blob: data:", "object-src 'none'", "base-uri 'none'", "frame-src 'none'",
+].join('; ')
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
@@ -274,7 +280,11 @@ app.whenReady().then(() => {
     const u = new URL(req.url)
     let arquivo = path.resolve(PASTA_WEB, '.' + decodeURIComponent(u.pathname))
     if (!arquivo.startsWith(PASTA_WEB) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) arquivo = path.join(PASTA_WEB, 'index.html')
-    return net.fetch(pathToFileURL(arquivo).toString())
+    const r = await net.fetch(pathToFileURL(arquivo).toString())
+    if (!arquivo.endsWith('.html')) return r
+    const headers = new Headers(r.headers)
+    headers.set('Content-Security-Policy', CSP)
+    return new Response(r.body, { status: r.status, headers })
   })
   // fotos e PDFs guardados pelo programa
   protocol.handle('bpfile', async (req) => {

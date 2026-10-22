@@ -27,7 +27,8 @@ exports.rodar = (janela, app) => {
     try {
       await pausa(3000)
       ok(await js('typeof window.bpDesktop === "object"'), 'ponte bpDesktop publicada')
-      ok((await textoDaTela()).includes('1.5.0'), 'tela de login mostra a versão')
+      const versao = require('../package.json').version
+      ok((await textoDaTela()).includes(versao), `tela de login mostra a versão ${versao}`)
       await foto('login')
 
       // banco
