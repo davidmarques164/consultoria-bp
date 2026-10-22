@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('bpDesktop', {
     sair: chamar('auth:sair'),
   },
   http: chamar('http'),
+  areaTransferencia: { imagem: chamar('areaTransferencia:imagem') },
   abrirExterno: chamar('abrirExterno'),
   dialogo: (titulo, mensagem, botoes, cancelar) => ipcRenderer.sendSync('dialogo', titulo, mensagem, botoes, cancelar),
 })

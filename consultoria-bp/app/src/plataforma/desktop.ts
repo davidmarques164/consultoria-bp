@@ -31,6 +31,8 @@ export interface BpDesktop {
     sair(): Promise<void>
   }
   abrirExterno(url: string): Promise<void>
+  /** Imagem da área de transferência do Windows (conteúdo em base64 e tipo), ou null. */
+  areaTransferencia: { imagem(): Promise<{ base64: string; tipo: string } | null> }
   /** Requisição HTTP feita pelo processo principal (só para as APIs do Google). Corpo de texto. */
   http(url: string, init: { method: string; headers: Record<string, string>; body: string | null }): Promise<{ status: number; body: string }>
   /** Janela de aviso do Windows; devolve o índice do botão escolhido (síncrono, como o Alert do celular). */

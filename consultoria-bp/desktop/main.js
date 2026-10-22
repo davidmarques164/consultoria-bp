@@ -9,7 +9,7 @@
  *   - chamadas ao Google Drive e janelas de aviso do Windows
  * <dados do programa> = %APPDATA%\Consultoria B+P
  */
-const { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } = require('electron')
+const { app, BrowserWindow, clipboard, dialog, ipcMain, net, protocol, safeStorage, shell } = require('electron')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
 const fsp = require('node:fs/promises')
@@ -255,6 +255,16 @@ const abrirFora = (url) => {
     if (u.protocol === 'https:' || u.protocol === 'http:' || u.protocol === 'mailto:') shell.openExternal(u.toString())
   } catch { /* endereço inválido */ }
 }
+// imagem copiada no Windows (print, imagem copiada do navegador...): { base64, tipo } ou null
+ipcMain.handle('areaTransferencia:imagem', async () => {
+  for (const item of await clipboard.read()) {
+    const tipo = item.types.find((t) => t.startsWith('image/'))
+    if (!tipo) continue
+    const blob = await item.getType(tipo)
+    return { base64: Buffer.from(await blob.arrayBuffer()).toString('base64'), tipo }
+  }
+  return null
+})
 ipcMain.handle('abrirExterno', (_e, url) => abrirFora(String(url)))
 
 function criarJanela() {

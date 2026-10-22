@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native'
+import { View, Text, Image, TouchableOpacity, Pressable, Modal, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Colors } from '../../constants/colors'
 import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
+import { imagemDaAreaTransferencia } from '../../plataforma/areaTransferencia'
 
 interface Props {
   titulo: string
@@ -22,6 +23,8 @@ interface Props {
  */
 export default function FotosCampo({ titulo, fotos, empresaId, onChange, unica, dica }: Props) {
   const [ocupado, setOcupado] = useState(false)
+  // foto aberta em tela cheia (toque na miniatura); remover é só pelo ✕
+  const [ampliada, setAmpliada] = useState<string | null>(null)
 
   const receber = async (resultado: ImagePicker.ImagePickerResult) => {
     if (resultado.canceled || resultado.assets.length === 0) return
@@ -51,13 +54,25 @@ export default function FotosCampo({ titulo, fotos, empresaId, onChange, unica, 
     await receber(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }))
   }
 
-  const galeria = async () => {
+  const escolherArquivos = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
       Alert.alert('Permissão necessária', 'Autorize o acesso às fotos para escolher da galeria.')
       return
     }
     await receber(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, allowsMultipleSelection: !unica }))
+  }
+
+  // no computador: se houver imagem copiada, oferece colar em vez de abrir a escolha de arquivos
+  const galeria = async () => {
+    const copiada = await imagemDaAreaTransferencia()
+    if (!copiada) return escolherArquivos()
+    const colar = () => receber({ canceled: false, assets: [{ uri: copiada, fileName: 'colada.png', width: 0, height: 0 }] } as ImagePicker.ImagePickerResult)
+    Alert.alert('Adicionar imagem', '', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Escolher arquivo', onPress: () => { escolherArquivos() } },
+      { text: 'Colar imagem copiada', onPress: () => { colar() } },
+    ])
   }
 
   const remover = (uri: string) => {
@@ -80,10 +95,14 @@ export default function FotosCampo({ titulo, fotos, empresaId, onChange, unica, 
       {fotos.length > 0 && (
         <View style={styles.miniaturas}>
           {fotos.map((f) => (
-            <TouchableOpacity key={f} onPress={() => remover(f)} activeOpacity={0.8}>
-              <Image source={{ uri: f }} style={styles.miniatura} />
-              <View style={styles.x}><Text style={styles.xTexto}>✕</Text></View>
-            </TouchableOpacity>
+            <View key={f}>
+              <Pressable onPress={() => setAmpliada(f)} accessibilityRole="imagebutton" accessibilityLabel="Ampliar foto">
+                <Image source={{ uri: f }} style={styles.miniatura} />
+              </Pressable>
+              <TouchableOpacity onPress={() => remover(f)} style={styles.x} hitSlop={6} accessibilityLabel="Remover foto" activeOpacity={0.8}>
+                <Text style={styles.xTexto}>✕</Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
       )}
@@ -99,6 +118,12 @@ export default function FotosCampo({ titulo, fotos, empresaId, onChange, unica, 
         </TouchableOpacity>
         {ocupado && <ActivityIndicator color={Colors.primary} />}
       </View>
+      <Modal visible={!!ampliada} transparent animationType="fade" onRequestClose={() => setAmpliada(null)}>
+        <Pressable style={styles.fundoAmpliada} onPress={() => setAmpliada(null)} accessibilityLabel="Fechar foto">
+          {!!ampliada && <Image source={{ uri: ampliada }} style={styles.ampliada} resizeMode="contain" />}
+          <View style={styles.fechar}><Text style={styles.fecharTexto}>✕</Text></View>
+        </Pressable>
+      </Modal>
     </View>
   )
 }
@@ -116,4 +141,8 @@ const styles = StyleSheet.create({
   botoes: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   botao: { backgroundColor: Colors.blueLight, borderWidth: 2, borderColor: Colors.blue, borderRadius: 10, minHeight: 52, justifyContent: 'center', paddingHorizontal: 16 },
   botaoTexto: { color: Colors.blueDark, fontWeight: '700', fontSize: 16 },
+  fundoAmpliada: { flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  ampliada: { width: '100%', height: '100%' },
+  fechar: { position: 'absolute', top: 24, right: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  fecharTexto: { color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
 })

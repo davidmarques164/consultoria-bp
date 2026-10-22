@@ -47,6 +47,16 @@ exports.rodar = (janela, app) => {
       ok(fora === 'recusou', 'caminho fora da pasta é recusado')
       const naoGoogle = await js(`bpDesktop.http('https://exemplo.com/', { method: 'GET', headers: {}, body: null }).then(() => 'foi', () => 'recusou')`)
       ok(naoGoogle === 'recusou', 'só as APIs do Google passam pelo programa')
+      // área de transferência: imagem copiada chega à tela e é guardada como as fotos escolhidas
+      const { clipboard, ClipboardItem } = require('electron')
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+      await clipboard.write([new ClipboardItem({ 'image/png': new Blob([png], { type: 'image/png' }) })])
+      const copiada = await js(`bpDesktop.areaTransferencia.imagem()`)
+      ok(copiada && copiada.tipo.startsWith('image/') && copiada.base64.length > 20, 'imagem da área de transferência lida')
+      const colada = await js(`fetch('data:${copiada?.tipo};base64,${copiada?.base64}').then(r => r.arrayBuffer()).then(b => bpDesktop.arquivos.gravar('emp1/colada.png', new Uint8Array(b)))`)
+      ok(await js(`bpDesktop.arquivos.tamanho('${colada}')`) > 0, 'imagem colada guardada')
+      clipboard.clear()
+      ok(await js(`bpDesktop.areaTransferencia.imagem()`) === null, 'sem imagem copiada: nada a colar')
       await js(`bpDesktop.arquivos.apagar('${caminho}')`)
       ok(await js(`bpDesktop.arquivos.tamanho('${caminho}')`) === null, 'arquivo apagado')
 

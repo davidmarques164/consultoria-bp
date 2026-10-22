@@ -23,3 +23,4 @@ Os APKs gerados antes da 1.3.0 mostram 1.0.0 (o número não era mudado). Para s
 código saiu um APK, veja a coluna "Git ref" na lista de builds do expo.dev.
 | 1.5.2 | exe-desktop | A1: uma senha só por aba, para todas as faturas daquela aba (sai o campo de senha de cada arquivo); APK gerado também pelo GitHub Actions, sem a cota do Expo (`docs/APK_GITHUB.md`) |
 | 1.5.3 | exe-desktop | Programa do Windows: retiradas as frases explicativas do painel, do login e da barra lateral |
+| 1.5.4 | exe-desktop | Fotos: tocar na miniatura amplia a foto; remover só pelo ✕. Programa do Windows: ao escolher imagem, se houver imagem copiada, oferece colar |
