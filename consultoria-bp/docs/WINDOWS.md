@@ -16,7 +16,13 @@ janelas de aviso.
 | Login Google pelo Android | Login abre no navegador do computador; depois disso o programa fica conectado |
 | Dados em `consultoria_bp.db` do aparelho | Dados em `%APPDATA%\Consultoria B+P` (banco, fotos e PDFs) |
 
-As telas ficam numa coluna central de até 820 px de largura.
+O desenho é próprio do computador (as funções são as mesmas): barra lateral com Início, Nova empresa,
+Em atendimento, Finalizadas, "Sincronizar com o Drive" e o consultor; painel inicial com os números
+(em atendimento, finalizadas, aguardando envio) e a lista das empresas com o progresso; tela da empresa
+com Salvar e Finalizar no alto e os módulos em quatro colunas. Arquivos só do computador:
+`navigation/AppNavigator.web.tsx`, `screens/consultor/HomeScreen.web.tsx`, `screens/auth/LoginScreen.web.tsx`,
+`components/empresa/EmpresaCard.web.tsx`, `components/atendimento/PecasEmpresa.web.tsx`,
+`constants/tema.web.ts`, `constants/colors.web.ts` e `plataforma/Icone.web.tsx`.
 
 ## Celular ⇄ computador: como os dados passam de um para o outro
 

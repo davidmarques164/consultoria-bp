@@ -118,6 +118,14 @@ export const Sombra = {
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
+  /** Usada só nas telas do programa do Windows (tema.web.ts); no celular quem separa é a borda. */
+  cartao: {
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
 } satisfies Record<string, ViewStyle>
 
 /** Durações de animação: curtas, para o app parecer pronto mesmo em celular simples. */

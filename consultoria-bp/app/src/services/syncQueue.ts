@@ -26,6 +26,11 @@ async function lerFila(): Promise<SyncJob[]> {
   }
 }
 
+/** Quantas empresas estão esperando envio ao Drive (sem internet ou com falha). */
+export async function contarPendentes(): Promise<number> {
+  return (await lerFila()).length
+}
+
 export async function enqueueSync(empresaId: string): Promise<void> {
   const queue = await lerFila()
   if (!queue.find((j) => j.empresaId === empresaId)) {

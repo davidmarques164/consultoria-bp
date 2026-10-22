@@ -60,14 +60,14 @@ exports.rodar = (janela, app) => {
         ok(achou, `toque em "${texto}"`)
         await pausa(2000)
       }
-      await clicar('Empresas em Atendimento')
+      await clicar('Em atendimento')
       ok(/Nenhuma empresa em atendimento/i.test(await textoDaTela()), 'lista de empresas abre (vazia)')
 
       // empresa no banco (como se viesse do celular): abre a tela da empresa e a A4
       await js(`bpDesktop.banco.run("INSERT INTO empresas (id, cnpj, razao_social, status, consultor_email, created_at, updated_at) VALUES ('emp-teste', '', 'Padaria Teste', 'em_atendimento', 'teste@exemplo.com', datetime('now'), datetime('now'))", [])`)
       await js('location.reload()').catch(() => {})
       await pausa(3500)
-      await clicar('Empresas em Atendimento')
+      await clicar('Em atendimento')
       ok((await textoDaTela()).includes('Padaria Teste'), 'empresa aparece na lista')
       await foto('empresas')
       await clicar('Padaria Teste')
@@ -76,6 +76,11 @@ exports.rodar = (janela, app) => {
       await clicar('Levantamento de Cargas')
       ok(/Escolher imagens/.test(await textoDaTela()) || /carga/i.test(await textoDaTela()), 'tela A4 abre')
       await foto('a4')
+      await clicar('Nova empresa')
+      ok(/Nome da empresa|nome/i.test(await textoDaTela()), 'tela Nova empresa abre')
+      await foto('nova')
+      await clicar('Finalizadas')
+      await foto('finalizadas')
       ok(erros.length === 0, `sem erros na tela${erros.length ? ': ' + erros.join(' | ') : ''}`)
       console.log('Programa do Windows: todos os testes passaram.')
       app.exit(0)

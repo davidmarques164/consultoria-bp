@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import { View, FlatList, StyleSheet, TouchableOpacity, Text } from 'react-native'
+import { View, FlatList, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import type { StackNavigationProp } from '@react-navigation/stack'
 import { AppStackParamList } from '../../navigation/types'
@@ -41,7 +41,7 @@ export default function EmpresasEmAtendimentoScreen() {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.novaBtn} onPress={() => navigation.navigate('NovaEmpresa')}>
-        <Text style={styles.novaBtnText}>➕  Nova Empresa</Text>
+        <Text style={styles.novaBtnText}>{NO_COMPUTADOR ? '+  Nova empresa' : '➕  Nova Empresa'}</Text>
       </TouchableOpacity>
       <FlatList
         data={emAtendimento}
@@ -67,15 +67,20 @@ export default function EmpresasEmAtendimentoScreen() {
   )
 }
 
+const NO_COMPUTADOR = Platform.OS === 'web'
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.grayLight },
-  novaBtn: {
-    margin: 16,
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    minHeight: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  novaBtnText: { color: Colors.white, fontWeight: '700', fontSize: 18 },
+  novaBtn: NO_COMPUTADOR
+    // no computador: botão compacto à direita, acima da lista
+    ? { alignSelf: 'flex-end', marginTop: 20, marginHorizontal: 24, marginBottom: 4, backgroundColor: Colors.primary, borderRadius: 8, height: 40, paddingHorizontal: 18, justifyContent: 'center', alignItems: 'center' }
+    : {
+        margin: 16,
+        backgroundColor: Colors.primary,
+        borderRadius: 10,
+        minHeight: 56,
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+  novaBtnText: { color: Colors.white, fontWeight: NO_COMPUTADOR ? '600' : '700', fontSize: NO_COMPUTADOR ? 14 : 18 },
 })

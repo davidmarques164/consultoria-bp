@@ -253,9 +253,9 @@ ipcMain.handle('abrirExterno', (_e, url) => abrirFora(String(url)))
 
 function criarJanela() {
   janela = new BrowserWindow({
-    width: 1100, height: 860, minWidth: 420, minHeight: 600,
+    width: 1320, height: 860, minWidth: 980, minHeight: 640,
     title: 'Consultoria B+P', icon: path.join(__dirname, 'build', 'icon.png'),
-    backgroundColor: '#0072BC', autoHideMenuBar: true, show: false,
+    backgroundColor: '#F1F5F9', autoHideMenuBar: true, show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   })
   janela.once('ready-to-show', () => janela.show())

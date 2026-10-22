@@ -17,6 +17,7 @@ A versão aparece no login e na tela inicial. Cada entrega muda o número em `ap
 | 1.4.5 | correcoes-141 | A1: campo "Senha das faturas" sempre visível em cada aba; a senha digitada vale para todas as faturas da aba, inclusive as enviadas depois (cada fatura ainda aceita uma senha própria) |
 | 1.4.5 (oficial) | main (tag v1.4.5) | Primeira versão oficial: ramos juntados no main; perfil `production` gera APK (ver `docs/PUBLICACAO.md`) |
 | 1.5.0 | exe-desktop | Programa para Windows (.exe) com as mesmas telas, gerado pelo GitHub Actions (ver `docs/WINDOWS.md`); sincronia celular ⇄ computador pela pasta do Drive (`_app/estado.json`, vale a última gravação); listas e tela da empresa trazem do Drive o que foi feito no outro aparelho |
+| 1.5.1 | exe-desktop | Programa do Windows com desenho próprio: barra lateral, painel inicial com números e empresas, login em duas colunas, tela da empresa com ações no alto e módulos em quatro colunas com ícones, fonte do Windows (Segoe UI). App do celular sem mudança visível (peças da tela da empresa separadas em `PecasEmpresa.tsx`) |
 
 Os APKs gerados antes da 1.3.0 mostram 1.0.0 (o número não era mudado). Para saber de qual
 código saiu um APK, veja a coluna "Git ref" na lista de builds do expo.dev.
