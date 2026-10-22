@@ -87,6 +87,21 @@ exports.rodar = (janela, app) => {
       await clicar('Levantamento de Cargas')
       ok(/Escolher imagens/.test(await textoDaTela()) || /carga/i.test(await textoDaTela()), 'tela A4 abre')
       await foto('a4')
+      janela.setContentSize(1366, 640)
+      await pausa(800)
+      for (let i = 0; i < 3; i++) await clicar('Adicionar carga')
+      const rolagem = await js(`(() => {
+        const els = [...document.querySelectorAll('div')].filter((d) => d.scrollHeight > d.clientHeight + 5 && getComputedStyle(d).overflowY !== 'visible' && getComputedStyle(d).overflowY !== 'hidden')
+        els.forEach((d) => { d.scrollTop = d.scrollHeight })
+        const b = [...document.querySelectorAll('[role="button"]')].find((x) => x.innerText.includes('Finalizar aba'))
+        const r = b.getBoundingClientRect()
+        const ultimaAba = [...document.querySelectorAll('[role="menuitem"]')].find((x) => x.innerText.includes('B2 · Dados gerais'))
+        const ra = ultimaAba ? ultimaAba.getBoundingClientRect() : null
+        return { ultimaAbaBase: ra && ra.bottom, rolaveis: els.map((d) => [d.clientHeight, d.scrollHeight, getComputedStyle(d).height]), botaoTopo: r.top, botaoBase: r.bottom, janela: innerHeight }
+      })()`)
+      await foto('a4-fim')
+      ok(rolagem.botaoBase <= rolagem.janela, 'rolagem chega ao fim da aba com a janela pequena')
+      ok(rolagem.ultimaAbaBase !== null && rolagem.ultimaAbaBase <= rolagem.janela, 'barra lateral rola até a última aba')
       await clicar('Finalizar aba')
       ok(/Aba finalizada/.test(await textoDaTela()), 'botão Finalizar aba marca a aba')
       ok(await js(`bpDesktop.banco.first("SELECT abas_finalizadas FROM atendimentos WHERE empresa_id = 'emp-teste'", []).then(r => r.abas_finalizadas)`) === '["A4"]', 'aba A4 gravada como finalizada')

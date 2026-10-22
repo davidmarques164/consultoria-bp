@@ -289,13 +289,13 @@ function ItemMenu({ item, ativo, aberto, onPress }: { item: Item; ativo: boolean
 }
 
 const styles = StyleSheet.create({
-  janela: { flex: 1, flexDirection: 'row', backgroundColor: Cor.superficie },
-  lateral: { width: 256, backgroundColor: LATERAL, paddingTop: 20, paddingBottom: 14, paddingHorizontal: 12 },
+  janela: { flex: 1, minHeight: 0, flexDirection: 'row', backgroundColor: Cor.superficie },
+  lateral: { width: 256, height: '100%', overflow: 'hidden', backgroundColor: LATERAL, paddingTop: 20, paddingBottom: 14, paddingHorizontal: 12 },
   marca: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 8, marginBottom: 28 },
   marcaIcone: { width: 38, height: 38, borderRadius: 10, backgroundColor: Marca.amarelo, alignItems: 'center', justifyContent: 'center' },
   marcaNome: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   marcaSub: { color: LATERAL_TEXTO, fontSize: 12, marginTop: 1 },
-  menu: { flex: 1, marginHorizontal: -4, paddingHorizontal: 4 },
+  menu: { flex: 1, minHeight: 0, marginHorizontal: -4, paddingHorizontal: 4 },
   sub: { marginLeft: 18, paddingLeft: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.14)', marginTop: 2, marginBottom: 4, gap: 2 },
   subVazio: { color: '#8FA5BD', fontSize: 12, paddingVertical: 6, paddingHorizontal: 8 },
   subItem: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 34, paddingHorizontal: 8, borderRadius: 6 },
@@ -321,6 +321,6 @@ const styles = StyleSheet.create({
   usuarioEmail: { color: LATERAL_TEXTO, fontSize: 12 },
   botaoSair: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   versao: { color: '#8FA5BD', fontSize: 11, paddingHorizontal: 4 },
-  conteudo: { flex: 1, backgroundColor: Cor.superficie },
+  conteudo: { flex: 1, minHeight: 0, backgroundColor: Cor.superficie },
   coluna: { flex: 1, width: '100%', maxWidth: 1180, alignSelf: 'center', borderLeftWidth: 1, borderRightWidth: 1, borderColor: Cor.divisor, backgroundColor: Cor.superficie },
 })
