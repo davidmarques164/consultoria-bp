@@ -1,7 +1,7 @@
 /** Google Drive simulado em memória: responde às chamadas REST que o app faz. Usado pelos testes fora do aparelho. */
 import assert from 'node:assert/strict'
 
-interface Arq { id: string; name: string; mimeType: string; parents: string[]; ownedByMe: boolean; content: string | null }
+interface Arq { id: string; name: string; mimeType: string; parents: string[]; ownedByMe: boolean; content: string | null; appProperties?: Record<string, string> }
 
 export function driveSimulado() {
   const arquivos: Arq[] = []
@@ -20,14 +20,26 @@ export function driveSimulado() {
     assert.match(init.headers?.Authorization ?? '', /^Bearer token-/, 'toda chamada leva o token do consultor')
     const m = /\/files(?:\/([^/]+))?(\/copy)?$/.exec(url.pathname)
     const id = m?.[1]
+    if (id && !m?.[2] && url.pathname.startsWith('/drive/v3/files/') && metodo === 'GET' && url.searchParams.get('alt') === 'media') {
+      const f = arquivos.find((a) => a.id === id)
+      return f ? new Response(f.content ?? '', { status: 200 }) : ok({ error: { message: 'não encontrado' } }, 404)
+    }
+    if (id && url.pathname.startsWith('/drive/v3/files/') && metodo === 'PATCH') {
+      const f = arquivos.find((a) => a.id === id)!
+      const corpo = JSON.parse(init.body)
+      if (corpo.appProperties) f.appProperties = { ...(f.appProperties ?? {}), ...corpo.appProperties }
+      return ok({ id })
+    }
     if (url.pathname.startsWith('/drive/v3/files') && metodo === 'GET') {
       const q = url.searchParams.get('q') ?? ''
       const nome = /name='((?:\\'|\\\\|[^'])*)'/.exec(q)?.[1]?.replace(/\\'/g, "'").replace(/\\\\/g, '\\')
       const pai = /'([^']+)' in parents/.exec(q)?.[1]
       const mime = /mimeType='([^']+)'/.exec(q)?.[1]
       const naoMime = /mimeType!='([^']+)'/.exec(q)?.[1]
-      const achados = arquivos.filter((f) => (nome === undefined || f.name === nome) && (!pai || f.parents.includes(pai)) && (!mime || f.mimeType === mime) && (!naoMime || f.mimeType !== naoMime))
-      return ok({ files: achados.map(({ id, name, mimeType, ownedByMe }) => ({ id, name, mimeType, ownedByMe })) })
+      const prop = /appProperties has \{ key='([^']+)' and value='([^']+)' \}/.exec(q)
+      const achados = arquivos.filter((f) => (nome === undefined || f.name === nome) && (!pai || f.parents.includes(pai)) && (!mime || f.mimeType === mime) && (!naoMime || f.mimeType !== naoMime)
+        && (!prop || f.appProperties?.[prop[1]] === prop[2]))
+      return ok({ files: achados.map(({ id, name, mimeType, ownedByMe, parents, appProperties }) => ({ id, name, mimeType, ownedByMe, parents, appProperties })) })
     }
     if (url.pathname === '/drive/v3/files' && metodo === 'POST') return ok({ id: novo(JSON.parse(init.body)).id })
     if (url.pathname === '/upload/drive/v3/files' && metodo === 'POST') {

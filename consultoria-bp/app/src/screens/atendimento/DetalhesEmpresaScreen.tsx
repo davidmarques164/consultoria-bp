@@ -15,7 +15,7 @@ import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
 import { exportarAtendimento } from '../../services/exportAtendimento'
 import { sincronizarEmpresa } from '../../services/syncEmpresa'
 import { resumoDaSincronizacao } from '../../services/syncPacote'
-import { enqueueSync, sincronizarEmSegundoPlano } from '../../services/syncQueue'
+import { enqueueSync, receberDoDrive, sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAuthStore } from '../../store/authStore'
 import { useEmpresaStore } from '../../store/empresaStore'
 import { Empresa } from '../../types/empresa'
@@ -71,6 +71,8 @@ export default function DetalhesEmpresaScreen() {
 
   useEffect(() => {
     loadData()
+    // se a empresa foi alterada no outro aparelho, traz a versão nova e recarrega
+    receberDoDrive().then((n) => { if (n > 0) loadData() })
   }, [empresaId])
 
   // ao voltar de um módulo, atualiza as marcas de concluído sem recarregar a tela
@@ -118,7 +120,8 @@ export default function DetalhesEmpresaScreen() {
     setSyncing(true)
     try {
       const r = await sincronizarEmpresa(empresaId, { nome: consultor?.nome ?? null, email: consultor?.email ?? null })
-      setEmpresa((e) => (e ? { ...e, drive_folder_id: r.pastaId } : e))
+      if (r.recebido) await loadData()
+      else setEmpresa((e) => (e ? { ...e, drive_folder_id: r.pastaId } : e))
       Alert.alert('Salvo', resumoDaSincronizacao(r))
     } catch (e: any) {
       await enqueueSync(empresaId).catch(() => {})

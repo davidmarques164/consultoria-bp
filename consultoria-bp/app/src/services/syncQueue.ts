@@ -5,7 +5,7 @@
  */
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { sincronizarEmpresa } from './syncEmpresa'
+import { receberEmpresasDoDrive, sincronizarEmpresa } from './syncEmpresa'
 import { getEmpresa } from '../db/operations'
 import { useAuthStore } from '../store/authStore'
 
@@ -103,4 +103,32 @@ export function startSyncListener(): () => void {
       processQueue().catch(console.warn)
     }
   })
+}
+
+// ── vindo do outro aparelho ─────────────────────────────────────────────────
+let ultimaBusca = 0
+let buscando: Promise<number> | null = null
+const INTERVALO_MINIMO_MS = 20_000
+
+/**
+ * Traz do Drive as empresas que foram cadastradas ou alteradas no outro aparelho (celular ⇄ computador).
+ * Chamado ao abrir as listas de empresas e a tela da empresa; no máximo uma busca a cada 20 s.
+ * Nunca lança erro: sem internet ou sem login devolve 0. Devolve quantas empresas mudaram aqui.
+ */
+export async function receberDoDrive(forcar = false): Promise<number> {
+  if (buscando) return buscando
+  const consultor = useAuthStore.getState().consultor
+  if (!consultor?.email) return 0
+  if (!forcar && Date.now() - ultimaBusca < INTERVALO_MINIMO_MS) return 0
+  try {
+    const rede = await NetInfo.fetch()
+    if (!rede.isConnected) return 0
+  } catch {
+    return 0
+  }
+  ultimaBusca = Date.now()
+  buscando = receberEmpresasDoDrive(consultor.email)
+    .catch((e) => { console.log('[DRIVE] Busca no Drive adiada:', e?.message); return 0 })
+    .finally(() => { buscando = null })
+  return buscando
 }

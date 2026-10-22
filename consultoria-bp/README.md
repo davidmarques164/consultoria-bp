@@ -6,6 +6,8 @@ CNPJ, as faturas, as fotos e o `atendimento.json`; o relatório é preenchido a 
 
 Funcionamento, telas e regras: [docs/FASE_A.md](docs/FASE_A.md).
 
+Programa para Windows (`.exe`) com as mesmas telas e sincronia com o celular: [docs/WINDOWS.md](docs/WINDOWS.md).
+
 ## Rodar e testar (pasta `app`)
 
 ```

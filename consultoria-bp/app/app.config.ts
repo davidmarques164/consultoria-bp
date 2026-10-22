@@ -1,9 +1,11 @@
+import { existsSync } from 'fs'
+
 export default {
   expo: {
     name: 'Consultoria B+P',
     slug: 'consultoria-bp',
     // Mude a cada nova versão entregue (ver docs/VERSOES.md). Aparece no login e na tela inicial.
-    version: '1.4.5',
+    version: '1.5.0',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     icon: './assets/images/icon.png',
@@ -20,7 +22,8 @@ export default {
       package: 'com.consultoriabp.app',
       permissions: ['android.permission.CAMERA'],
       blockedPermissions: ['android.permission.RECORD_AUDIO'],
-      googleServicesFile: './google-services.json',
+      // o arquivo do Firebase não vai para o repositório: sem ele (versão do Windows, GitHub) a configuração segue sem esta linha
+      googleServicesFile: existsSync('./google-services.json') ? './google-services.json' : undefined,
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#FFFFFF',

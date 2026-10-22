@@ -1,0 +1,69 @@
+# Gera o instalador do programa Consultoria B+P para Windows (.exe).
+# Roda a cada push que mexe no app ou no programa, e também pelo botão "Run workflow" na aba Actions.
+# O .exe fica para baixar em Actions > (execução) > Artifacts. Num tag v* (ex.: v1.5.0) vira também um Release.
+# Segredos do repositório usados no login Google: BP_GOOGLE_CLIENT_ID e BP_GOOGLE_CLIENT_SECRET (ver docs/WINDOWS.md).
+name: Programa do Windows (.exe)
+
+on:
+  push:
+    branches: [main, exe-desktop]
+    tags: ['v*']
+    paths:
+      - 'consultoria-bp/app/**'
+      - 'consultoria-bp/desktop/**'
+      - '.github/workflows/exe-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            consultoria-bp/app/package-lock.json
+            consultoria-bp/desktop/package-lock.json
+
+      - name: Instalar o app
+        working-directory: consultoria-bp/app
+        run: npm ci
+
+      - name: Testes do app
+        working-directory: consultoria-bp/app
+        run: npm run teste:fase-a
+
+      - name: Instalar o programa
+        working-directory: consultoria-bp/desktop
+        run: npm ci
+
+      - name: Gerar o .exe
+        working-directory: consultoria-bp/desktop
+        env:
+          BP_GOOGLE_CLIENT_ID: ${{ secrets.BP_GOOGLE_CLIENT_ID }}
+          BP_GOOGLE_CLIENT_SECRET: ${{ secrets.BP_GOOGLE_CLIENT_SECRET }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Consultoria-BP-Windows
+          path: consultoria-bp/desktop/release/*.exe
+          if-no-files-found: error
+
+      - name: Teste do programa (abre o .exe montado e confere telas, banco e arquivos)
+        working-directory: consultoria-bp/desktop
+        timeout-minutes: 5
+        run: npm run teste
+
+      - name: Release (só em tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: consultoria-bp/desktop/release/*.exe

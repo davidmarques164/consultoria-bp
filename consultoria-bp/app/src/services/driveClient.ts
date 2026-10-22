@@ -16,6 +16,9 @@ export interface ArquivoDrive {
   name: string
   mimeType?: string
   ownedByMe?: boolean
+  parents?: string[]
+  appProperties?: Record<string, string>
+  modifiedTime?: string
 }
 
 /** Envia o conteúdo de um arquivo local (PATCH de mídia). Devolve o status HTTP. */
@@ -145,7 +148,36 @@ export function criarDrive(getToken: () => Promise<string>, fetchImpl: typeof fe
     return r.id
   }
 
-  return { buscar, criarPasta, garantirPasta, garantirPastaRaiz, encontrarArquivo, listarArquivos, enviarTexto, enviarArquivoLocal, copiarArquivo }
+  /** Conteúdo de um arquivo JSON do Drive. */
+  async function lerJson<T>(fileId: string): Promise<T> {
+    return chamar(`${API}/files/${fileId}?alt=media`)
+  }
+
+  /** Grava propriedades do app (chave/valor) num arquivo, para achá-lo depois sem abrir o conteúdo. */
+  async function definirPropriedades(fileId: string, appProperties: Record<string, string>): Promise<void> {
+    await chamar(`${API}/files/${fileId}?fields=id`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appProperties }) })
+  }
+
+  /** Todos os arquivos com a propriedade `chave=valor` que o usuário enxerga (dele e compartilhados com ele). */
+  async function buscarPorPropriedade(chave: string, valor: string): Promise<ArquivoDrive[]> {
+    const q = `appProperties has { key='${escaparBusca(chave)}' and value='${escaparBusca(valor)}' } and trashed=false`
+    const campos = 'nextPageToken,files(id,name,parents,appProperties,modifiedTime)'
+    const todos: ArquivoDrive[] = []
+    let pagina: string | undefined
+    do {
+      const url = `${API}/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(campos)}&pageSize=200&spaces=drive${pagina ? `&pageToken=${encodeURIComponent(pagina)}` : ''}`
+      const r = await chamar(url)
+      todos.push(...(r.files ?? []))
+      pagina = r.nextPageToken
+    } while (pagina)
+    return todos
+  }
+
+  /** Endereço para baixar o conteúdo de um arquivo (com o cabeçalho de `cabecalhoAutorizacao`). */
+  const urlDoConteudo = (fileId: string) => `${API}/files/${fileId}?alt=media`
+  const cabecalhoAutorizacao = async (): Promise<Record<string, string>> => ({ Authorization: `Bearer ${await getToken()}` })
+
+  return { lerJson, definirPropriedades, buscarPorPropriedade, urlDoConteudo, cabecalhoAutorizacao, buscar, criarPasta, garantirPasta, garantirPastaRaiz, encontrarArquivo, listarArquivos, enviarTexto, enviarArquivoLocal, copiarArquivo }
 }
 
 export type Drive = ReturnType<typeof criarDrive>

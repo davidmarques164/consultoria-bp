@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Colors } from '../../constants/colors'
 import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
@@ -88,17 +88,22 @@ export default function FotosCampo({ titulo, fotos, empresaId, onChange, unica, 
         </View>
       )}
       <View style={styles.botoes}>
-        <TouchableOpacity style={styles.botao} onPress={camera} disabled={ocupado} activeOpacity={0.85}>
-          <Text style={styles.botaoTexto}>📷  Câmera</Text>
-        </TouchableOpacity>
+        {/* no computador não há câmera: só a escolha de arquivos de imagem */}
+        {!NO_COMPUTADOR && (
+          <TouchableOpacity style={styles.botao} onPress={camera} disabled={ocupado} activeOpacity={0.85}>
+            <Text style={styles.botaoTexto}>📷  Câmera</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.botao} onPress={galeria} disabled={ocupado} activeOpacity={0.85}>
-          <Text style={styles.botaoTexto}>🖼  Galeria</Text>
+          <Text style={styles.botaoTexto}>{NO_COMPUTADOR ? '🖼  Escolher imagens' : '🖼  Galeria'}</Text>
         </TouchableOpacity>
         {ocupado && <ActivityIndicator color={Colors.primary} />}
       </View>
     </View>
   )
 }
+
+const NO_COMPUTADOR = Platform.OS === 'web'
 
 const styles = StyleSheet.create({
   box: { marginBottom: 10 },

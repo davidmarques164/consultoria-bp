@@ -79,7 +79,7 @@ async function main() {
   assert.equal(pastaOffline.length, 1)
   assert.deepEqual(pastaOffline[0].parents, [raiz[0].id])
   assert.equal(pastaOffline[0].id, (await getEmpresa(offline))?.drive_folder_id)
-  assert.deepEqual(dentro(pastaOffline[0].id), ['atendimento.json', 'atendimento.md', 'cartao_cnpj.pdf', 'modelo'])
+  assert.deepEqual(dentro(pastaOffline[0].id), ['_app', 'atendimento.json', 'atendimento.md', 'cartao_cnpj.pdf', 'modelo'])
 
   // ── cadastro com internet: a pasta nasce na hora ──────────────────────────
   const online = await cadastrar('Empresa Online')

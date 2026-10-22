@@ -1,10 +1,11 @@
-import * as SQLite from 'expo-sqlite'
+import { abrirBanco } from './abrirBanco'
+import type { Banco } from './banco'
 
-let _db: SQLite.SQLiteDatabase | null = null
+let _db: Banco | null = null
 
-export async function getDB(): Promise<SQLite.SQLiteDatabase> {
+export async function getDB(): Promise<Banco> {
   if (!_db) {
-    _db = await SQLite.openDatabaseAsync('consultoria_bp.db')
+    _db = await abrirBanco('consultoria_bp.db')
     await _db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;')
     await initSchema(_db)
     await migrarFaseA(_db)
@@ -13,7 +14,7 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
 }
 
 /** Acrescenta uma coluna a uma tabela que já existe no aparelho (bancos criados antes da fase A). */
-async function addColumnIfMissing(db: SQLite.SQLiteDatabase, tabela: string, coluna: string, definicao: string) {
+async function addColumnIfMissing(db: Banco, tabela: string, coluna: string, definicao: string) {
   const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${tabela})`)
   if (!cols.some((c) => c.name === coluna)) {
     await db.execAsync(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${definicao}`)
@@ -24,7 +25,7 @@ async function addColumnIfMissing(db: SQLite.SQLiteDatabase, tabela: string, col
  * Fase A: o app deixa de espelhar a planilha e passa a guardar cargas, intervenções e ações
  * tarifárias, que viram o atendimento.json da pasta da empresa. As tabelas antigas ficam intactas.
  */
-async function migrarFaseA(db: SQLite.SQLiteDatabase) {
+async function migrarFaseA(db: Banco) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS cargas (
       id TEXT PRIMARY KEY,
@@ -108,12 +109,16 @@ async function migrarFaseA(db: SQLite.SQLiteDatabase) {
   await addColumnIfMissing(db, 'cargas', 'modo_uso', 'TEXT')
   await addColumnIfMissing(db, 'atendimentos', 'funcionamento', 'TEXT')
   await addColumnIfMissing(db, 'cargas', 'horas_dia', 'REAL')
+  // sincronia entre aparelhos (celular e computador) pela pasta do Drive: última alteração local e a
+  // última que este aparelho sabe estar no Drive (ver services/estadoEmpresa.ts)
+  await addColumnIfMissing(db, 'empresas', 'alterado_em', 'TEXT')
+  await addColumnIfMissing(db, 'empresas', 'sincronizado_em', 'TEXT')
   await db.execAsync(`CREATE TABLE IF NOT EXISTS rascunhos (chave TEXT PRIMARY KEY, conteudo TEXT NOT NULL, updated_at TEXT)`)
 }
 
 // Tabelas e colunas do app antigo que ainda existam em aparelhos já instalados ficam lá, sem uso:
 // apagá-las exigiria migração e não muda nada para o app.
-async function initSchema(db: SQLite.SQLiteDatabase) {
+async function initSchema(db: Banco) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS consultor (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

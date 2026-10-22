@@ -6,6 +6,7 @@ import { AppStackParamList } from '../../navigation/types'
 import { useEmpresaStore } from '../../store/empresaStore'
 import { useAuthStore } from '../../store/authStore'
 import { listEmpresas, statusModulosPorEmpresa } from '../../db/operations'
+import { receberDoDrive } from '../../services/syncQueue'
 import EmpresaCard from '../../components/empresa/EmpresaCard'
 import EmptyState from '../../components/common/EmptyState'
 import { Colors } from '../../constants/colors'
@@ -22,9 +23,16 @@ export default function EmpresasEmAtendimentoScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!consultor) return
-      listEmpresas(consultor.email).then(setEmpresas)
-      // barra de progresso: lida de novo sempre que a lista aparece, para refletir o que foi preenchido
-      statusModulosPorEmpresa(consultor.email).then(setStatus).catch(() => {})
+      let ativa = true
+      const carregar = () => {
+        listEmpresas(consultor.email).then((l) => { if (ativa) setEmpresas(l) })
+        // barra de progresso: lida de novo sempre que a lista aparece, para refletir o que foi preenchido
+        statusModulosPorEmpresa(consultor.email).then((s) => { if (ativa) setStatus(s) }).catch(() => {})
+      }
+      carregar()
+      // empresas cadastradas ou alteradas no outro aparelho (celular ⇄ computador)
+      receberDoDrive().then((n) => { if (n > 0) carregar() })
+      return () => { ativa = false }
     }, [consultor, setEmpresas])
   )
 

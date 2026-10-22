@@ -18,7 +18,11 @@ Sem backend, sem API da Claude e sem escrita célula a célula no Google Sheets.
   outros_insumos/         faturas e notas de GLP, gás natural, lenha e biomassa: glp_01.pdf ...
   cargas/                 c01.jpg, c02_1.jpg ...
   intervencoes/           i01_antes.jpg, i01_depois.jpg, i01_medicao_antes.jpg ...
+  _app/estado.json        só do app: tudo o que ele guarda da empresa, para continuar no outro aparelho
 ```
+
+A pasta `_app` não faz parte do relatório: serve para o mesmo atendimento seguir no celular e no
+programa do Windows (ver [WINDOWS.md](WINDOWS.md)).
 
 ## O que o consultor preenche no app
 
@@ -141,7 +145,7 @@ para Em Atendimento e, ao finalizar de novo, a data de fim passa a ser a nova.
 8. Intervenções — feito nas telas A5 a A13; falta o teste no aparelho.
 9. Conclusão com confirmação dupla e reabertura — feito; falta o teste no aparelho.
 10. Teste de ponta a ponta.
-11. Versão web e `.exe`.
+11. Programa do Windows (`.exe`) e sincronia celular ⇄ computador — feito (versão 1.5.0, [WINDOWS.md](WINDOWS.md)); falta o teste com login real.
 
 ## Gerar o APK (instalação sem loja)
 

@@ -28,6 +28,8 @@ export interface ResultadoDaSincronizacao {
   /** Enviados, mas grandes demais para a Claude ler pelo conector. */
   grandes: string[]
   modelo: 'copiado' | 'ja_estava' | 'nao_encontrado'
+  /** O Drive tinha uma versão mais nova (do outro aparelho): ela foi trazida e nada foi enviado. */
+  recebido?: boolean
 }
 
 export async function sincronizarPacote(drive: Drive, pacote: PacoteDaEmpresa, apoio: ApoioDoAparelho, pastaIdConhecida?: string | null): Promise<ResultadoDaSincronizacao> {
@@ -84,6 +86,7 @@ export async function sincronizarPacote(drive: Drive, pacote: PacoteDaEmpresa, a
 
 /** Texto curto para mostrar ao consultor depois da sincronização. */
 export function resumoDaSincronizacao(r: ResultadoDaSincronizacao): string {
+  if (r.recebido) return `O Drive tinha dados mais novos de "${r.pasta}", gravados em outro aparelho. Eles foram trazidos para cá.`
   const linhas = [`Pasta "${r.pasta}" atualizada no Drive.`, `${r.enviados.length} arquivo(s) enviado(s); ${r.jaEstavam.length} já estavam lá.`]
   if (r.modelo === 'nao_encontrado') linhas.push('Modelo V9 não encontrado: coloque o arquivo .xlsx em "Consultoria B+P/modelo" no Drive.')
   if (r.grandes.length > 0) linhas.push(`Arquivos grandes (acima de 3,5 MB), que podem não ser lidos na geração do relatório: ${r.grandes.join(', ')}.`)

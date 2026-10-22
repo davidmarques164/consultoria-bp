@@ -2,6 +2,7 @@ import { getDB } from './schema'
 import { Empresa } from '../types/empresa'
 import { DadosAtendimento, HistoricoMes } from '../types/atendimento'
 import { novoId } from '../utils/id'
+import { marcarAtendimentoAlterado, marcarEmpresaAlterada } from './alteracoes'
 
 // ── EMPRESAS ────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ export async function createEmpresa(data: Omit<Empresa, 'created_at' | 'updated_
      data.planilha_url ?? null, data.consultor_email,
      data.cartao_cnpj_path ?? null, data.cartao_cnpj_nome ?? null, now, now]
   )
+  await marcarEmpresaAlterada(data.id)
   return { ...data, created_at: now, updated_at: now }
 }
 
@@ -36,6 +38,13 @@ export async function updateEmpresa(id: string, dados: Partial<Empresa>): Promis
   const fields = Object.keys(dados).map(k => `${k} = ?`).join(', ')
   const values = [...Object.values(dados), now, id]
   await db.runAsync(`UPDATE empresas SET ${fields}, updated_at = ? WHERE id = ?`, values)
+  await marcarEmpresaAlterada(id)
+}
+
+/** Guarda o id da pasta da empresa no Drive. Não é alteração de dado: não muda `alterado_em`. */
+export async function definirPastaDrive(id: string, pastaId: string): Promise<void> {
+  const db = await getDB()
+  await db.runAsync('UPDATE empresas SET drive_folder_id = ? WHERE id = ?', [pastaId, id])
 }
 
 export async function listEmpresas(consultor_email: string): Promise<Empresa[]> {
@@ -118,6 +127,7 @@ export async function updateAtendimento(id: string, dados: Partial<DadosAtendime
     `UPDATE atendimentos SET ${fields}, updated_at = ? WHERE id = ?`,
     values
   )
+  await marcarAtendimentoAlterado(id)
 }
 
 export async function getAtendimento(empresa_id: string): Promise<DadosAtendimento | null> {
@@ -154,6 +164,7 @@ export async function upsertHistoricoConsumo(
       )
     }
   })
+  await marcarAtendimentoAlterado(atendimento_id)
 }
 
 export async function getHistoricoConsumo(atendimento_id: string): Promise<Record<string, HistoricoMes[]>> {

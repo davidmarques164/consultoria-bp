@@ -1,0 +1,36 @@
+{
+  "name": "consultoria-bp-desktop",
+  "productName": "Consultoria B+P",
+  "version": "1.5.0",
+  "description": "Consultoria B+P para Windows — mesmas telas do app do celular",
+  "author": "NEODO Soluções Inteligentes",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "versao": "node scripts/versao.js",
+    "web": "node scripts/web.js",
+    "start": "electron .",
+    "teste": "node scripts/teste.js",
+    "exe": "npm run versao && npm run web && electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.consultoriabp.desktop",
+    "productName": "Consultoria B+P",
+    "artifactName": "Consultoria-BP-${version}-instalador.${ext}",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "oauth.json", "web/**/*", "build/icon.png"],
+    "win": { "target": ["nsis"], "icon": "build/icon.ico" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Consultoria B+P",
+      "language": "1046"
+    }
+  }
+}

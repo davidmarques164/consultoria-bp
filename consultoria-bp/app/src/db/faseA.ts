@@ -4,6 +4,7 @@
  */
 import { novoId } from '../utils/id'
 import { getDB } from './schema'
+import { marcarAtendimentoAlterado, marcarEmpresaAlterada } from './alteracoes'
 import { AcaoTarifaria, AtendimentoFaseA, Carga, FaturaArquivo, Intervencao } from '../types/faseA'
 import { TipoTarifario } from '../types/atendimentoJson'
 
@@ -25,6 +26,7 @@ const lista = <T>(s: string | null | undefined, padrao: T): T => {
 export async function marcarInicio(atendimentoId: string): Promise<void> {
   const db = await getDB()
   await db.runAsync('UPDATE atendimentos SET inicio = ? WHERE id = ? AND inicio IS NULL', [agora(), atendimentoId])
+  await marcarAtendimentoAlterado(atendimentoId)
 }
 
 export async function getAtendimentoFaseA(atendimentoId: string): Promise<AtendimentoFaseA | null> {
@@ -69,6 +71,7 @@ export async function concluirAtendimento(atendimentoId: string, empresaId: stri
   const fim = agora()
   await db.runAsync("UPDATE atendimentos SET fim = ?, status = 'concluido', updated_at = ? WHERE id = ?", [fim, fim, atendimentoId])
   await db.runAsync("UPDATE empresas SET status = 'finalizada', updated_at = ? WHERE id = ?", [fim, empresaId])
+  await marcarEmpresaAlterada(empresaId)
   return fim
 }
 
@@ -78,6 +81,7 @@ export async function reabrirAtendimento(atendimentoId: string, empresaId: strin
   const t = agora()
   await db.runAsync("UPDATE atendimentos SET status = 'em_andamento', updated_at = ? WHERE id = ?", [t, atendimentoId])
   await db.runAsync("UPDATE empresas SET status = 'em_atendimento', updated_at = ? WHERE id = ?", [t, empresaId])
+  await marcarEmpresaAlterada(empresaId)
 }
 
 // ── CARGAS ──────────────────────────────────────────────────────────────────
@@ -128,7 +132,9 @@ export async function salvarCarga(c: Omit<Carga, 'id' | 'ordem'> & { id?: string
 
 export async function excluirCarga(id: string): Promise<void> {
   const db = await getDB()
+  const r = await db.getFirstAsync<{ atendimento_id: string }>('SELECT atendimento_id FROM cargas WHERE id = ?', [id])
   await db.runAsync('DELETE FROM cargas WHERE id = ?', [id])
+  if (r) await marcarAtendimentoAlterado(r.atendimento_id)
 }
 
 // ── INTERVENÇÕES ────────────────────────────────────────────────────────────
@@ -190,7 +196,9 @@ export async function salvarIntervencao(i: Omit<Intervencao, 'id' | 'ordem'> & {
 
 export async function excluirIntervencao(id: string): Promise<void> {
   const db = await getDB()
+  const r = await db.getFirstAsync<{ atendimento_id: string }>('SELECT atendimento_id FROM intervencoes WHERE id = ?', [id])
   await db.runAsync('DELETE FROM intervencoes WHERE id = ?', [id])
+  if (r) await marcarAtendimentoAlterado(r.atendimento_id)
 }
 
 // ── AÇÕES TARIFÁRIAS ────────────────────────────────────────────────────────
@@ -218,7 +226,9 @@ export async function listarFaturasArquivo(empresaId: string): Promise<FaturaArq
 
 export async function excluirFaturaArquivo(id: string): Promise<void> {
   const db = await getDB()
+  const r = await db.getFirstAsync<{ empresa_id: string }>('SELECT empresa_id FROM faturas WHERE id = ?', [id])
   await db.runAsync('DELETE FROM faturas WHERE id = ?', [id])
+  if (r) await marcarEmpresaAlterada(r.empresa_id)
 }
 
 export async function salvarFaturaArquivo(empresaId: string, atendimentoId: string, f: Omit<FaturaArquivo, 'id'> & { id?: string }): Promise<string> {

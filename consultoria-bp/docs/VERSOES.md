@@ -16,6 +16,7 @@ A versão aparece no login e na tela inicial. Cada entrega muda o número em `ap
 | 1.4.4 | correcoes-141 | Texto da jornada integral encurtado |
 | 1.4.5 | correcoes-141 | A1: campo "Senha das faturas" sempre visível em cada aba; a senha digitada vale para todas as faturas da aba, inclusive as enviadas depois (cada fatura ainda aceita uma senha própria) |
 | 1.4.5 (oficial) | main (tag v1.4.5) | Primeira versão oficial: ramos juntados no main; perfil `production` gera APK (ver `docs/PUBLICACAO.md`) |
+| 1.5.0 | exe-desktop | Programa para Windows (.exe) com as mesmas telas, gerado pelo GitHub Actions (ver `docs/WINDOWS.md`); sincronia celular ⇄ computador pela pasta do Drive (`_app/estado.json`, vale a última gravação); listas e tela da empresa trazem do Drive o que foi feito no outro aparelho |
 
 Os APKs gerados antes da 1.3.0 mostram 1.0.0 (o número não era mudado). Para saber de qual
 código saiu um APK, veja a coluna "Git ref" na lista de builds do expo.dev.

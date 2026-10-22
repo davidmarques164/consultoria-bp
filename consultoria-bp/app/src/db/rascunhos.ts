@@ -5,6 +5,7 @@
  * O rascunho só some quando o próprio consultor apaga o item.
  */
 import { getDB } from './schema'
+import { atendimentoDaChave, marcarAtendimentoAlterado } from './alteracoes'
 
 export async function lerRascunho<T>(chave: string): Promise<T | null> {
   const db = await getDB()
@@ -20,4 +21,6 @@ export async function gravarRascunho(chave: string, conteudo: unknown): Promise<
      ON CONFLICT(chave) DO UPDATE SET conteudo = excluded.conteudo, updated_at = excluded.updated_at`,
     [chave, JSON.stringify(conteudo), new Date().toISOString()]
   )
+  const atendimentoId = atendimentoDaChave(chave)
+  if (atendimentoId) await marcarAtendimentoAlterado(atendimentoId)
 }
