@@ -17,7 +17,10 @@ export interface ResultadoRecuperacao {
 const nomeAlbum = (texto: string) => `B+P - ${texto}`.replace(/[\\/:*?"<>|]/g, ' ').trim().slice(0, 60)
 
 export async function recuperarFotosParaGaleria(): Promise<ResultadoRecuperacao> {
-  const perm = await MediaLibrary.requestPermissionsAsync(true, ['photo'])
+  // álbum precisa de acesso completo às fotos; sem ele as fotos vão para a galeria sem álbum
+  let perm = await MediaLibrary.requestPermissionsAsync(false, ['photo'])
+  const comAlbum = perm.granted && perm.accessPrivileges === 'all'
+  if (!perm.granted) perm = await MediaLibrary.requestPermissionsAsync(true, ['photo'])
   if (!perm.granted) throw new Error('Permissão para gravar na galeria negada.')
 
   const pastaRaiz = await FileSystem.getInfoAsync(PASTA)
@@ -33,15 +36,19 @@ export async function recuperarFotosParaGaleria(): Promise<ResultadoRecuperacao>
 
     const empresa = await getEmpresa(empresaId).catch(() => null)
     const titulo = nomeAlbum(empresa?.razao_social || empresaId)
-    let album = await MediaLibrary.getAlbumAsync(titulo)
+    let album = comAlbum ? await MediaLibrary.getAlbumAsync(titulo).catch(() => null) : null
     let copiadas = 0
     let falhas = 0
     for (const nome of nomes) {
       try {
         const asset = await MediaLibrary.createAssetAsync(`${pasta}${nome}`)
-        if (album) await MediaLibrary.addAssetsToAlbumAsync([asset], album, false)
-        else album = await MediaLibrary.createAlbumAsync(titulo, asset, false)
         copiadas++
+        if (comAlbum) {
+          try {
+            if (album) await MediaLibrary.addAssetsToAlbumAsync([asset], album, false)
+            else album = await MediaLibrary.createAlbumAsync(titulo, asset, false)
+          } catch { /* a foto já está na galeria, só fica fora do álbum */ }
+        }
       } catch {
         falhas++
       }
