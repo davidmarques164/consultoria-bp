@@ -6,6 +6,11 @@ name: App do celular (APK)
 
 on:
   workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'versionCode fixo (vazio = automático)'
+        required: false
+        default: ''
   push:
     branches: [main, exe-desktop]
     tags: ['v*']
@@ -66,6 +71,7 @@ jobs:
           VERSAO=$(grep -oE "version: '[0-9]+\.[0-9]+\.[0-9]+'" app.config.ts | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
           IFS=. read MA MI PA <<< "$VERSAO"
           export BP_VERSION_CODE=$(( 100000000 + MA*1000000 + MI*10000 + PA*100 + GITHUB_RUN_NUMBER % 100 ))
+          if [ -n "${{ github.event.inputs.version_code }}" ]; then export BP_VERSION_CODE=${{ github.event.inputs.version_code }}; fi
           echo "Versão $VERSAO, versionCode $BP_VERSION_CODE"
           echo "VERSAO=$VERSAO" >> "$GITHUB_ENV"
           node scripts/assinar-android.js
@@ -81,7 +87,7 @@ jobs:
           cd android
           ./gradlew assembleRelease --no-daemon
           mkdir -p ../apk
-          cp app/build/outputs/apk/release/app-release.apk "../apk/Consultoria-BP-$VERSAO.apk"
+          cp app/build/outputs/apk/release/app-release.apk "../apk/Consultoria-BP-$VERSAO-recuperacao.apk"
 
       - uses: actions/upload-artifact@v4
         with:

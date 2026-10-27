@@ -41,6 +41,7 @@ export default {
         },
       ],
       'expo-secure-store',
+      ['expo-media-library', { photosPermission: 'Usado para copiar as fotos do app para a galeria.', savePhotosPermission: 'Usado para copiar as fotos do app para a galeria.', isAccessMediaLocationEnabled: false }],
       [
         'expo-build-properties',
         {

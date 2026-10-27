@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -15,6 +16,7 @@ import { useAuthStore } from '../../store/authStore'
 import { signOut } from '../../services/googleAuth'
 import { VERSAO_APP } from '../../constants/versao'
 import { Colors } from '../../constants/colors'
+import { recuperarFotosParaGaleria } from '../../services/recuperarFotos'
 
 type Nav = StackNavigationProp<AppStackParamList>
 
@@ -23,6 +25,20 @@ export default function HomeScreen() {
   const consultor = useAuthStore((s) => s.consultor)
   const clearConsultor = useAuthStore((s) => s.clearConsultor)
   const insets = useSafeAreaInsets()
+  const [recuperando, setRecuperando] = useState(false)
+
+  const recuperarFotos = async () => {
+    setRecuperando(true)
+    try {
+      const r = await recuperarFotosParaGaleria()
+      const linhas = r.empresas.map((e) => `${e.nome}: ${e.copiadas}${e.falhas ? ` (${e.falhas} com erro)` : ''}`)
+      Alert.alert('Recuperar fotos', r.total ? `${r.total} fotos copiadas para a galeria.\n\n${linhas.join('\n')}` : 'Nenhuma foto encontrada.')
+    } catch (e) {
+      Alert.alert('Recuperar fotos', e instanceof Error ? e.message : String(e))
+    } finally {
+      setRecuperando(false)
+    }
+  }
 
   const handleLogout = () => {
     Alert.alert('Sair', 'Deseja encerrar a sessão?', [
@@ -85,7 +101,10 @@ export default function HomeScreen() {
         >
           <Text style={styles.secondaryText}>✅  Empresas Finalizadas</Text>
         </TouchableOpacity>
-        <Text style={styles.versao}>Versão {VERSAO_APP}</Text>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={recuperarFotos} disabled={recuperando} activeOpacity={0.8}>
+          {recuperando ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>🖼️  Recuperar fotos</Text>}
+        </TouchableOpacity>
+        <Text style={styles.versao}>Versão {VERSAO_APP} (recuperação)</Text>
       </View>
     </View>
   )
