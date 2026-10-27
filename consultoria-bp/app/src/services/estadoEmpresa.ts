@@ -3,15 +3,18 @@
  * (celular ⇄ computador). Vai para `<pasta da empresa>/_app/estado.json` no Drive junto com o
  * atendimento.json; o atendimento.json é para o relatório, o estado.json é só para o app.
  *
+ * Os dois aparelhos podem alterar a mesma empresa: ao receber, os dados são juntados item por item
+ * (mesclarEstado), e não substituídos.
+ *
  * Os ids (empresa, atendimento, cargas...) são os mesmos nos dois aparelhos. Os arquivos (fotos,
  * faturas, cartão) são caminhos do aparelho que gravou: quem recebe baixa cada um do Drive e troca
  * o caminho pelo seu. O nome do arquivo (ex.: 1729000000000_123456.jpg) é único e é mantido.
  */
 import { getDB } from '../db/schema'
-import { atendimentoDaChave } from '../db/alteracoes'
 import type { Parametro } from '../db/banco'
 
-export const VERSAO_ESTADO = 1
+/** 2: itens juntados um a um, exclusões viajam, rascunhos das telas não viajam. */
+export const VERSAO_ESTADO = 2
 
 type Linha = Record<string, Parametro>
 
@@ -31,9 +34,11 @@ export interface EstadoEmpresa {
   alterado_em: string
   tabelas: Record<TabelaDoEstado, Linha[]>
   arquivos: ArquivoDoEstado[]
+  /** Itens apagados (versão 2 em diante). */
+  excluidos?: { tabela: string; id: string; quando: string }[]
 }
 
-const TABELAS = ['empresas', 'atendimentos', 'cargas', 'intervencoes', 'acoes_tarifarias', 'historico_consumo', 'faturas', 'rascunhos'] as const
+const TABELAS = ['empresas', 'atendimentos', 'cargas', 'intervencoes', 'acoes_tarifarias', 'historico_consumo', 'faturas'] as const
 type TabelaDoEstado = typeof TABELAS[number]
 
 /** Colunas que são do aparelho, não da empresa: não viajam no estado. */
@@ -50,7 +55,6 @@ export async function lerEstadoLocal(empresaId: string, alteradoEm: string): Pro
     if (ids.length === 0) return []
     return db.getAllAsync<Linha>(`SELECT * FROM ${tabela} WHERE atendimento_id IN (${ids.map(() => '?').join(',')})`, ids)
   }
-  const rascunhos = (await db.getAllAsync<Linha>('SELECT * FROM rascunhos')).filter((r) => ids.includes(atendimentoDaChave(String(r.chave)) ?? ''))
   const arquivos = await db.getAllAsync<{ caminho_local: string; drive_file_id: string; nome_original: string }>(
     "SELECT caminho_local, drive_file_id, nome_original FROM arquivos WHERE empresa_id = ? AND tipo = 'fase_a' AND sincronizado = 1",
     [empresaId],
@@ -69,8 +73,8 @@ export async function lerEstadoLocal(empresaId: string, alteradoEm: string): Pro
       acoes_tarifarias: await porAtendimento('acoes_tarifarias'),
       historico_consumo: await porAtendimento('historico_consumo'),
       faturas: await db.getAllAsync<Linha>('SELECT * FROM faturas WHERE empresa_id = ?', [empresaId]),
-      rascunhos,
     },
+    excluidos: await db.getAllAsync<{ tabela: string; id: string; quando: string }>('SELECT tabela, id, quando FROM excluidos WHERE empresa_id = ?', [empresaId]),
     arquivos: arquivos.filter((a) => a.caminho_local && a.drive_file_id).map((a) => ({ caminho: a.caminho_local, destino: a.nome_original, file_id: a.drive_file_id })),
   }
 }
@@ -92,58 +96,149 @@ function trocarCaminhos(linhas: Linha[], troca: Map<string, string>): Linha[] {
   })))
 }
 
+/** Datas do banco em formato comparável: '2026-10-26 13:22:00' (SQLite) vira '2026-10-26T13:22:00Z'. */
+export function momento(v: Parametro | undefined): string {
+  if (v === null || v === undefined) return ''
+  const s = String(v)
+  return /^\d{4}-\d\d-\d\d \d/.test(s) ? `${s.replace(' ', 'T')}Z` : s
+}
+
+/** Tabelas juntadas linha por linha: chave da linha e coluna com a hora da última alteração. */
+const MESCLA: { tabela: TabelaDoEstado; chave: (l: Linha) => string; hora: (l: Linha) => string }[] = [
+  { tabela: 'atendimentos', chave: (l) => String(l.id), hora: (l) => momento(l.updated_at) },
+  { tabela: 'cargas', chave: (l) => String(l.id), hora: (l) => momento(l.updated_at) },
+  { tabela: 'intervencoes', chave: (l) => String(l.id), hora: (l) => momento(l.updated_at) },
+  { tabela: 'acoes_tarifarias', chave: (l) => String(l.id), hora: (l) => momento(l.updated_at) },
+  { tabela: 'faturas', chave: (l) => String(l.id), hora: (l) => momento(l.updated_at ?? l.created_at) },
+  // o histórico é regravado inteiro a cada "Salvar" (ids novos): a chave é atendimento + insumo + mês
+  { tabela: 'historico_consumo', chave: (l) => `${l.atendimento_id}|${l.insumo}|${l.mes}`, hora: (l) => momento(l.created_at) },
+]
+
+export interface ResultadoDaMescla {
+  /** Alguma linha deste aparelho mudou (veio do outro aparelho ou foi apagada lá). */
+  mudou: boolean
+  /** O estado do Drive não tinha alguma alteração deste aparelho (é preciso enviar de volta). */
+  localTemMais: boolean
+}
+
 /**
- * Substitui no banco os dados da empresa pelos do estado recebido.
- * `troca` leva cada caminho do outro aparelho ao caminho do arquivo já baixado neste.
- * Grava `alterado_em` e `sincronizado_em` com a marca do estado: este aparelho fica igual ao Drive.
+ * Junta o estado vindo do Drive com o deste aparelho, item por item: em cada carga, equipamento,
+ * fatura e registro fica a versão alterada por último; item apagado num aparelho é apagado no outro.
+ * Nada que só existe neste aparelho é perdido. `troca` leva os caminhos de arquivo do outro aparelho
+ * aos deste. Os rascunhos das telas não viajam: cada tela confere os itens ao abrir.
  */
-export async function aplicarEstado(estado: EstadoEmpresa, troca: Map<string, string>, pastaId: string | null): Promise<void> {
+export async function mesclarEstado(estado: EstadoEmpresa, troca: Map<string, string>, pastaId: string | null): Promise<ResultadoDaMescla> {
   if (estado.versao > VERSAO_ESTADO) throw new Error('Os dados desta empresa foram gravados por uma versão mais nova do app. Atualize o app.')
   const db = await getDB()
   const empresaId = estado.empresa_id
   const colunas = new Map<string, Set<string>>()
-  for (const t of TABELAS) {
+  for (const t of [...TABELAS, 'excluidos']) {
     const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${t})`)
     colunas.set(t, new Set(cols.map((c) => c.name)))
   }
-  const inserir = async (tabela: TabelaDoEstado, linha: Linha) => {
+  const gravar = async (tabela: string, linha: Linha) => {
     const cols = Object.keys(linha).filter((k) => colunas.get(tabela)?.has(k))
     if (cols.length === 0) return
     await db.runAsync(`INSERT OR REPLACE INTO ${tabela} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`, cols.map((c) => linha[c] ?? null))
   }
+  const res: ResultadoDaMescla = { mudou: false, localTemMais: false }
   const t = estado.tabelas
-  await db.withTransactionAsync(async () => {
-    const antigos = (await db.getAllAsync<{ id: string }>('SELECT id FROM atendimentos WHERE empresa_id = ?', [empresaId])).map((a) => a.id)
-    const todos = [...new Set([...antigos, ...t.atendimentos.map((a) => String(a.id))])]
-    if (todos.length > 0) {
-      const marcas = todos.map(() => '?').join(',')
-      for (const tabela of ['cargas', 'intervencoes', 'acoes_tarifarias', 'historico_consumo']) {
-        await db.runAsync(`DELETE FROM ${tabela} WHERE atendimento_id IN (${marcas})`, todos)
-      }
-      const rascunhos = await db.getAllAsync<{ chave: string }>('SELECT chave FROM rascunhos')
-      for (const r of rascunhos) if (todos.includes(atendimentoDaChave(r.chave) ?? '')) await db.runAsync('DELETE FROM rascunhos WHERE chave = ?', [r.chave])
-    }
-    await db.runAsync('DELETE FROM faturas WHERE empresa_id = ?', [empresaId])
-    await db.runAsync("DELETE FROM arquivos WHERE empresa_id = ? AND tipo = 'fase_a'", [empresaId])
-    await db.runAsync('DELETE FROM atendimentos WHERE empresa_id = ?', [empresaId])
 
-    for (const e of trocarCaminhos(t.empresas, troca)) {
-      await inserir('empresas', { ...e, drive_folder_id: e.drive_folder_id ?? pastaId, alterado_em: estado.alterado_em, sincronizado_em: estado.alterado_em })
+  await db.withTransactionAsync(async () => {
+    // exclusões dos dois aparelhos
+    const excluidos = new Map<string, string>()
+    for (const e of await db.getAllAsync<{ tabela: string; id: string; quando: string }>('SELECT tabela, id, quando FROM excluidos WHERE empresa_id = ?', [empresaId])) {
+      excluidos.set(`${e.tabela}:${e.id}`, momento(e.quando))
     }
-    for (const tabela of ['atendimentos', 'cargas', 'intervencoes', 'acoes_tarifarias', 'historico_consumo', 'faturas', 'rascunhos'] as const) {
-      for (const l of trocarCaminhos(t[tabela], troca)) await inserir(tabela, l)
+    const remotos = new Set<string>()
+    for (const e of estado.excluidos ?? []) {
+      const k = `${e.tabela}:${e.id}`
+      remotos.add(k)
+      if (!excluidos.has(k) || momento(e.quando) > (excluidos.get(k) ?? '')) {
+        excluidos.set(k, momento(e.quando))
+        await gravar('excluidos', { tabela: e.tabela, id: e.id, empresa_id: empresaId, quando: e.quando })
+      }
     }
-    // arquivos já no Drive: o próximo envio deste aparelho não os manda de novo
-    const atendimentoId = t.atendimentos[0]?.id ?? null
+    for (const k of excluidos.keys()) if (!remotos.has(k)) res.localTemMais = true
+    const apagadoDepois = (tabela: string, id: unknown, hora: string) => {
+      const q = excluidos.get(`${tabela}:${String(id)}`)
+      return q !== undefined && q >= hora
+    }
+
+    // empresa: vale a alteração mais recente; pasta do Drive e marcas de sincronia são deste aparelho
+    const local = await db.getFirstAsync<Linha>('SELECT * FROM empresas WHERE id = ?', [empresaId])
+    const remota = trocarCaminhos(t.empresas, troca)[0]
+    if (remota && (!local || momento(remota.updated_at) > momento(local.updated_at))) {
+      await gravar('empresas', {
+        ...remota,
+        drive_folder_id: local?.drive_folder_id ?? remota.drive_folder_id ?? pastaId,
+        alterado_em: local?.alterado_em ?? null, sincronizado_em: local?.sincronizado_em ?? null,
+      })
+      res.mudou = true
+    } else if (local && (!remota || momento(local.updated_at) > momento(remota.updated_at))) {
+      res.localTemMais = true
+    }
+
+    const ids = new Set((await db.getAllAsync<{ id: string }>('SELECT id FROM atendimentos WHERE empresa_id = ?', [empresaId])).map((a) => a.id))
+    for (const a of t.atendimentos) ids.add(String(a.id))
+    const marcas = [...ids].map(() => '?').join(',')
+
+    for (const m of MESCLA) {
+      const sqlLocal = m.tabela === 'atendimentos' ? 'SELECT * FROM atendimentos WHERE empresa_id = ?'
+        : m.tabela === 'faturas' ? 'SELECT * FROM faturas WHERE empresa_id = ?'
+        : `SELECT * FROM ${m.tabela} WHERE atendimento_id IN (${marcas || "''"})`
+      const parametros = m.tabela === 'atendimentos' || m.tabela === 'faturas' ? [empresaId] : [...ids]
+      const locais = new Map<string, Linha>()
+      for (const l of await db.getAllAsync<Linha>(sqlLocal, parametros)) locais.set(m.chave(l), l)
+      const vindas = new Map<string, Linha>()
+      for (const l of trocarCaminhos(t[m.tabela] ?? [], troca)) vindas.set(m.chave(l), l)
+
+      for (const [k, r] of vindas) {
+        const l = locais.get(k)
+        if (apagadoDepois(m.tabela, r.id, m.hora(r))) {
+          if (l) { await db.runAsync(`DELETE FROM ${m.tabela} WHERE id = ?`, [l.id]); res.mudou = true }
+          continue
+        }
+        if (!l || m.hora(r) > m.hora(l)) {
+          // no histórico a linha local tem outro id: sai a local, entra a que veio
+          if (l && l.id !== r.id) await db.runAsync(`DELETE FROM ${m.tabela} WHERE id = ?`, [l.id])
+          await gravar(m.tabela, r)
+          res.mudou = true
+        } else if (m.hora(l) > m.hora(r)) {
+          res.localTemMais = true
+        }
+      }
+      for (const [k, l] of locais) {
+        if (vindas.has(k)) continue
+        if (apagadoDepois(m.tabela, l.id, m.hora(l))) {
+          await db.runAsync(`DELETE FROM ${m.tabela} WHERE id = ?`, [l.id])
+          res.mudou = true
+        } else {
+          res.localTemMais = true // só existe aqui
+        }
+      }
+    }
+
+    // arquivos que o outro aparelho já enviou: este não manda de novo
+    const atendimentoId = t.atendimentos[0]?.id ?? [...ids][0] ?? null
     for (const a of estado.arquivos) {
-      const local = troca.get(a.caminho)
-      if (!local) continue
+      const localDoArquivo = troca.get(a.caminho)
+      if (!localDoArquivo) continue
+      const ja = await db.getFirstAsync<{ id: string }>("SELECT id FROM arquivos WHERE empresa_id = ? AND tipo = 'fase_a' AND nome_original = ?", [empresaId, a.destino])
+      if (ja) continue
       await db.runAsync(
         "INSERT INTO arquivos (id,atendimento_id,empresa_id,tipo,caminho_local,drive_file_id,nome_original,sincronizado) VALUES (?,?,?,'fase_a',?,?,?,1)",
-        [`${empresaId}:${a.destino}`, atendimentoId, empresaId, local, a.file_id, a.destino],
+        [`${empresaId}:${a.destino}`, atendimentoId, empresaId, localDoArquivo, a.file_id, a.destino],
       )
     }
   })
+  return res
+}
+
+/** Define as duas marcas de sincronia deste aparelho para a empresa. */
+export async function definirMarcas(empresaId: string, alteradoEm: string, sincronizadoEm: string): Promise<void> {
+  const db = await getDB()
+  await db.runAsync('UPDATE empresas SET alterado_em = ?, sincronizado_em = ? WHERE id = ?', [alteradoEm, sincronizadoEm, empresaId])
 }
 
 /** Marca que este aparelho está igual ao Drive até a alteração `marca`. */
@@ -167,22 +262,4 @@ export async function garantirMarca(empresaId: string): Promise<string> {
   const agora = new Date().toISOString()
   await db.runAsync('UPDATE empresas SET alterado_em = ? WHERE id = ? AND alterado_em IS NULL', [agora, empresaId])
   return (await lerMarcas(empresaId))?.alterado_em ?? agora
-}
-
-/**
- * Vale a última gravação. Compara o que este aparelho tem com o estado que está no Drive:
- * - `receber`: o Drive tem alteração que este aparelho não viu, e é a mais nova;
- * - `enviar`: este aparelho tem alteração que o Drive não tem, e é a mais nova (ou o Drive não tem estado);
- * - `igual`: os dois estão iguais.
- */
-export function decidirSincronia(local: MarcasLocais | null, remoto: { alterado_em: string } | null): 'receber' | 'enviar' | 'igual' {
-  if (!local) return remoto ? 'receber' : 'igual'
-  if (!remoto) return 'enviar'
-  const visto = local.sincronizado_em ?? ''
-  const remotoNovo = remoto.alterado_em > visto
-  const localNovo = (local.alterado_em ?? '') > visto
-  if (remotoNovo && localNovo) return remoto.alterado_em > (local.alterado_em ?? '') ? 'receber' : 'enviar'
-  if (remotoNovo) return 'receber'
-  if (localNovo) return 'enviar'
-  return 'igual'
 }

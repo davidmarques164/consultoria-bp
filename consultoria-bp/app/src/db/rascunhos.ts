@@ -14,6 +14,14 @@ export async function lerRascunho<T>(chave: string): Promise<T | null> {
   try { return JSON.parse(r.conteudo) as T } catch { return null }
 }
 
+/** O rascunho e a hora em que foi gravado (para comparar com itens alterados no outro aparelho). */
+export async function lerRascunhoComData<T>(chave: string): Promise<{ conteudo: T; quando: string } | null> {
+  const db = await getDB()
+  const r = await db.getFirstAsync<{ conteudo: string; updated_at: string | null }>('SELECT conteudo, updated_at FROM rascunhos WHERE chave = ?', [chave])
+  if (!r) return null
+  try { return { conteudo: JSON.parse(r.conteudo) as T, quando: r.updated_at ?? '' } } catch { return null }
+}
+
 export async function gravarRascunho(chave: string, conteudo: unknown): Promise<void> {
   const db = await getDB()
   await db.runAsync(

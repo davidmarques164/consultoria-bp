@@ -20,7 +20,11 @@ import { cargaDoForm, formCargaEmBranco, formCargaVazio, formDaCarga, FormCarga 
 import { novoId } from '../../utils/id'
 import { horaDigitada } from '../../utils/entrada'
 import { ModoUso } from '../../types/atendimentoJson'
-import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
+import { lerRascunhoComData, gravarRascunho } from '../../db/rascunhos'
+import { lerExcluidos } from '../../db/faseA'
+import { momento } from '../../services/estadoEmpresa'
+import { atualizarDoDrive } from '../../services/syncQueue'
+import { useAbasStore } from '../../store/abasStore'
 import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 
 type Route = RouteProp<AppStackParamList, 'A4_LevantamentoCargas'>
@@ -51,16 +55,40 @@ export default function A4_LevantamentoCargasScreen() {
 
   useEffect(() => { carregar() }, [atendimentoId])
 
-  // O que foi digitado volta exatamente como estava (rascunho); cargas gravadas que não estejam
-  // no rascunho (de uma versão anterior do app) entram no fim.
-  const carregar = async () => {
+  // ao abrir: traz o que o outro aparelho gravou; se algo chegar com a tela aberta, ela recarrega
+  useEffect(() => { atualizarDoDrive(empresaId) }, [empresaId])
+  const recebidos = useAbasStore((s) => s.recebidos[empresaId] ?? 0)
+  const primeiraCarga = useRef(true)
+  useEffect(() => {
+    if (primeiraCarga.current) { primeiraCarga.current = false; return }
+    carregar(true)
+  }, [recebidos])
+
+  // cartões como estão gravados: só o que mudar depois disso é gravado de novo
+  const gravados = useRef(new Map<string, string>())
+
+  // O que foi digitado volta exatamente como estava (rascunho). Carga alterada no outro aparelho depois
+  // do rascunho volta como está gravada; carga apagada lá some daqui; cargas fora do rascunho entram no fim.
+  const carregar = async (recarga = false) => {
     try {
-      const [lista, rascunho] = await Promise.all([listarCargas(atendimentoId), lerRascunho<Cartao[]>(chaveRascunho)])
-      setSalvas(Object.fromEntries(lista.map((c) => [c.id, c])))
-      const doRascunho = (rascunho ?? []).map((c) => ({ ...formCargaVazio(), ...c }))
+      const [lista, rascunho, excluidos] = await Promise.all([
+        listarCargas(atendimentoId), lerRascunhoComData<Cartao[]>(chaveRascunho), lerExcluidos('cargas'),
+      ])
+      const porId = new Map(lista.map((c) => [c.id, c]))
+      const quandoRascunho = momento(rascunho?.quando)
+      const doRascunho = (rascunho?.conteudo ?? []).flatMap((c): Cartao[] => {
+        const cartao = { ...formCargaVazio(), ...c }
+        const gravada = cartao.id ? porId.get(cartao.id) : undefined
+        if (cartao.id && !gravada && excluidos.has(cartao.id)) return []
+        if (gravada && momento(gravada.updated_at) > quandoRascunho) return [{ ...formDaCarga(gravada), chave: cartao.chave }]
+        return [cartao]
+      })
       const ids = new Set(doRascunho.map((c) => c.id))
       const deFora = lista.filter((c) => !ids.has(c.id)).map((c) => ({ ...formDaCarga(c), chave: c.id }))
       const todos = [...doRascunho, ...deFora]
+      setSalvas(Object.fromEntries(lista.map((c) => [c.id, c])))
+      gravados.current = new Map(todos.map((c) => [c.chave, JSON.stringify(c)]))
+      if (recarga) recarregou()
       setCartoes(todos.length > 0 ? todos : [cartaoNovo()])
       setPronto(true)
     } catch (e: any) {
@@ -72,17 +100,19 @@ export default function A4_LevantamentoCargasScreen() {
   // Só um nome, só uma foto ou os dois: tudo fica guardado até o consultor apagar.
   // itens apagados nesta tela: uma gravação que já estava em curso não pode trazê-los de volta
   const removidos = useRef(new Set<string>())
+  // só grava as cargas que mudaram nesta tela (as outras podem ter sido alteradas no outro aparelho);
+  // o rascunho vai por último, para ficar mais novo que as cargas gravadas daqui
   const gravarTudo = async (lista: Cartao[]) => {
-    await gravarRascunho(chaveRascunho, lista.filter((c) => !removidos.current.has(c.chave)))
-    let algum = false
     for (const c of lista) {
       if (removidos.current.has(c.chave)) continue
       if (formCargaEmBranco(c)) continue
-      if (await gravar(c)) algum = true
+      const json = JSON.stringify(c)
+      if (gravados.current.get(c.chave) === json) continue
+      if (await gravar(c)) gravados.current.set(c.chave, json)
     }
-    if (algum) await updateAtendimento(atendimentoId, { status_modulos: { A4: true } })
+    await gravarRascunho(chaveRascunho, lista.filter((c) => !removidos.current.has(c.chave)))
   }
-  useAutoSalvar(cartoes, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
+  const { recarregou } = useAutoSalvar(cartoes, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
 
   const alterar = (chave: string, dados: Partial<FormCarga>) => setCartoes((p) => p.map((c) => (c.chave === chave ? { ...c, ...dados } : c)))
 
@@ -131,9 +161,12 @@ export default function A4_LevantamentoCargasScreen() {
     }
     setLoading(true)
     try {
+      for (const c of preenchidos) {
+        const json = JSON.stringify(c)
+        if (gravados.current.get(c.chave) === json) continue
+        if (await gravar(c)) gravados.current.set(c.chave, json)
+      }
       await gravarRascunho(chaveRascunho, cartoes)
-      for (const c of preenchidos) await gravar(c)
-      await updateAtendimento(atendimentoId, { status_modulos: { A4: preenchidos.length > 0 } })
       if (preenchidos.length > 0) marcarModuloConcluido('A4')
       const lista = await listarCargas(atendimentoId)
       setSalvas(Object.fromEntries(lista.map((x) => [x.id, x])))

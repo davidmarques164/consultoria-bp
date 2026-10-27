@@ -114,6 +114,9 @@ async function migrarFaseA(db: Banco) {
   // abas finalizadas pelo botão "Finalizar aba" (as marcadas "não se aplica" também contam como finalizadas)
   await addColumnIfMissing(db, 'atendimentos', 'abas_finalizadas', 'TEXT')
   await addColumnIfMissing(db, 'empresas', 'alterado_em', 'TEXT')
+  // sincronia item por item: quando cada fatura mudou e o que foi apagado (para apagar também no outro aparelho)
+  await addColumnIfMissing(db, 'faturas', 'updated_at', 'TEXT')
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS excluidos (tabela TEXT NOT NULL, id TEXT NOT NULL, empresa_id TEXT, quando TEXT NOT NULL, PRIMARY KEY (tabela, id))`)
   await addColumnIfMissing(db, 'empresas', 'sincronizado_em', 'TEXT')
   await db.execAsync(`CREATE TABLE IF NOT EXISTS rascunhos (chave TEXT PRIMARY KEY, conteudo TEXT NOT NULL, updated_at TEXT)`)
 }

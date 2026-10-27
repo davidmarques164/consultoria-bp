@@ -5,7 +5,7 @@ export default {
     name: 'Consultoria B+P',
     slug: 'consultoria-bp',
     // Mude a cada nova versão entregue (ver docs/VERSOES.md). Aparece no login e na tela inicial.
-    version: '1.6.1',
+    version: '1.6.2',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     icon: './assets/images/icon.png',

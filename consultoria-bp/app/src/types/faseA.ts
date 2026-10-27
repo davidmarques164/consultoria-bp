@@ -22,6 +22,8 @@ export interface Carga {
   horas_dia: number | null
   uso_final: string | null
   fotos: string[]
+  /** Hora da última gravação (vem do banco; não é gravada a partir daqui). */
+  updated_at?: string | null
 }
 
 export interface Intervencao {
@@ -52,6 +54,8 @@ export interface Intervencao {
   realizada: boolean | null
   fotos_antes: string[]
   fotos_depois: string[]
+  /** Hora da última gravação (vem do banco; não é gravada a partir daqui). */
+  updated_at?: string | null
 }
 
 export interface AcaoTarifaria {

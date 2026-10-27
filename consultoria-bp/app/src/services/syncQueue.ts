@@ -5,7 +5,7 @@
  */
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { receberEmpresasDoDrive, sincronizarEmpresa } from './syncEmpresa'
+import { atualizarEmpresaDoDrive, receberEmpresasDoDrive, sincronizarEmpresa } from './syncEmpresa'
 import { getEmpresa } from '../db/operations'
 import { useAuthStore } from '../store/authStore'
 
@@ -132,8 +132,28 @@ export async function receberDoDrive(forcar = false): Promise<number> {
     return 0
   }
   ultimaBusca = Date.now()
-  buscando = receberEmpresasDoDrive(consultor.email)
+  buscando = receberEmpresasDoDrive(consultor.email, (id) => sincronizarEmSegundoPlano(id))
     .catch((e) => { console.log('[DRIVE] Busca no Drive adiada:', e?.message); return 0 })
     .finally(() => { buscando = null })
   return buscando
+}
+
+const ultimaPorEmpresa = new Map<string, number>()
+
+/**
+ * Ao abrir uma aba: traz e junta o que o outro aparelho gravou nesta empresa (no máximo a cada 15 s).
+ * Se algo mudar, as telas abertas da empresa recarregam (aviso em useAbasStore). Nunca lança erro.
+ */
+export async function atualizarDoDrive(empresaId: string): Promise<void> {
+  const consultor = useAuthStore.getState().consultor
+  if (!consultor?.email) return
+  if (Date.now() - (ultimaPorEmpresa.get(empresaId) ?? 0) < 15_000) return
+  try {
+    const rede = await NetInfo.fetch()
+    if (!rede.isConnected) return
+    ultimaPorEmpresa.set(empresaId, Date.now())
+    await atualizarEmpresaDoDrive(empresaId)
+  } catch (e: any) {
+    console.log('[DRIVE] Atualização da empresa adiada:', e?.message)
+  }
 }

@@ -162,6 +162,7 @@ export async function upsertHistoricoConsumo(
   meses: HistoricoMes[]
 ): Promise<void> {
   const db = await getDB()
+  const now = new Date().toISOString()
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       'DELETE FROM historico_consumo WHERE atendimento_id = ? AND insumo = ?',
@@ -169,8 +170,8 @@ export async function upsertHistoricoConsumo(
     )
     for (const mes of meses) {
       await db.runAsync(
-        'INSERT INTO historico_consumo (id,atendimento_id,insumo,mes,consumo,valor) VALUES (?,?,?,?,?,?)',
-        [novoId(), atendimento_id, insumo, mes.mes, mes.consumo ?? null, mes.valor ?? null]
+        'INSERT INTO historico_consumo (id,atendimento_id,insumo,mes,consumo,valor,created_at) VALUES (?,?,?,?,?,?,?)',
+        [novoId(), atendimento_id, insumo, mes.mes, mes.consumo ?? null, mes.valor ?? null, now]
       )
     }
   })

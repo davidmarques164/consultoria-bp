@@ -11,7 +11,7 @@ import { criarAutoSalvador } from '../utils/autoSalvador'
  *   do Drive é atualizada, uma vez só, em vez de a cada letra digitada.
  * - Nada é gravado antes de `pronto` (os dados salvos ainda estão carregando).
  */
-export function useAutoSalvar<T>(valor: T, pronto: boolean, gravar: (v: T) => Promise<void>, aoSair: () => void): void {
+export function useAutoSalvar<T>(valor: T, pronto: boolean, gravar: (v: T) => Promise<void>, aoSair: () => void): { recarregou: () => void } {
   const salvador = useRef(criarAutoSalvador<T>({ gravar, aoSair }))
   const primeiro = useRef(true)
   salvador.current.trocarFuncoes({ gravar, aoSair })
@@ -33,4 +33,7 @@ export function useAutoSalvar<T>(valor: T, pronto: boolean, gravar: (v: T) => Pr
 
   // saída da tela
   useEffect(() => () => { salvador.current.sair() }, [])
+
+  // a tela recarregou do banco (dados vindos do outro aparelho): essa troca não é alteração a gravar
+  return { recarregou: () => { primeiro.current = true } }
 }

@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useAbasStore } from '../../store/abasStore'
 import { View, StyleSheet, Alert, Platform } from 'react-native'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native'
@@ -65,6 +66,14 @@ export default function DetalhesEmpresaScreen() {
     // se a empresa foi alterada no outro aparelho, traz a versão nova e recarrega
     receberDoDrive().then((n) => { if (n > 0) loadData() })
   }, [empresaId])
+
+  // dados desta empresa vindos do outro aparelho com a tela aberta
+  const recebidos = useAbasStore((s) => s.recebidos[empresaId] ?? 0)
+  const primeiraCarga = useRef(true)
+  useEffect(() => {
+    if (primeiraCarga.current) { primeiraCarga.current = false; return }
+    loadData()
+  }, [recebidos])
 
   // ao voltar de um módulo, atualiza as marcas de concluído sem recarregar a tela
   useFocusEffect(useCallback(() => {

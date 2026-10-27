@@ -36,9 +36,11 @@ lista dos arquivos já enviados). A pasta `_app` é só do app; o relatório con
   fotos e os PDFs que faltam. No máximo uma busca a cada 20 segundos.
 - **Ao salvar** (qualquer Salvar e o envio automático), se o Drive tiver uma versão mais nova feita no
   outro aparelho, ela é trazida em vez do envio.
-- **Vale a última gravação.** Se a mesma empresa for alterada nos dois aparelhos sem sincronizar entre
-  uma alteração e outra, fica a versão de quem gravou por último; a outra é descartada. Para não perder
-  nada, salve num aparelho (com internet) antes de mexer no outro.
+- **Os dados são juntados item por item.** Cada carga, equipamento, fatura e mês do histórico fica com a
+  versão alterada por último; o que só existe num aparelho é mantido; o que foi apagado num aparelho é
+  apagado no outro. Os dados gerais do atendimento (B2, horários, abas finalizadas) ficam com a gravação
+  mais recente. Ao abrir uma aba, o app busca no Drive o que o outro aparelho gravou; se chegar algo com a
+  aba aberta, ela recarrega. Rascunhos das telas (o texto ainda incompleto) ficam só no aparelho.
 - Empresas de outro consultor na mesma pasta raiz compartilhada não aparecem.
 - Duas empresas diferentes com o mesmo nome (mesma pasta) não se misturam: o envio da segunda é recusado
   com o aviso "Já existe no Drive outra empresa com a pasta ...".

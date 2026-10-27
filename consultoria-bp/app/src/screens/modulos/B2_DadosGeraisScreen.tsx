@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { atualizarDoDrive } from '../../services/syncQueue'
+import { useAbasStore } from '../../store/abasStore'
 import { StyleSheet, Alert } from 'react-native'
 import BotaoFinalizarAba from '../../components/atendimento/BotaoFinalizarAba'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
@@ -42,15 +44,25 @@ export default function B2_DadosGeraisScreen() {
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }))
 
   // grava sozinho a cada alteração; o botão Salvar continua para confirmar
-  useAutoSalvar(form, pronto, async (f) => {
+  const { recarregou } = useAutoSalvar(form, pronto, async (f) => {
     await updateAtendimento(atendimentoId, { ...f })
     await marcarInicio(atendimentoId)
   }, () => sincronizarEmSegundoPlano(empresaId))
 
   useEffect(() => { loadData() }, [atendimentoId])
 
-  const loadData = async () => {
+  // ao abrir: traz o que o outro aparelho gravou; se algo chegar com a tela aberta, ela recarrega
+  useEffect(() => { atualizarDoDrive(empresaId) }, [empresaId])
+  const recebidos = useAbasStore((s) => s.recebidos[empresaId] ?? 0)
+  const primeiraCarga = useRef(true)
+  useEffect(() => {
+    if (primeiraCarga.current) { primeiraCarga.current = false; return }
+    loadData(true)
+  }, [recebidos])
+
+  const loadData = async (recarga = false) => {
     const at = await getAtendimento(empresaId)
+    if (recarga) recarregou()
     if (at) {
       setForm({
         consultor_1: at.consultor_1 ?? consultor?.nome ?? '',
@@ -76,7 +88,6 @@ export default function B2_DadosGeraisScreen() {
     try {
       await updateAtendimento(atendimentoId, {
         ...form,
-        status_modulos: { B2: true },
       })
       await marcarInicio(atendimentoId)
       marcarModuloConcluido('B2')

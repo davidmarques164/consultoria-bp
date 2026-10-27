@@ -13,6 +13,8 @@ import { apagarArquivo, guardarArquivo } from '../../services/arquivosLocais'
 import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
+import { atualizarDoDrive } from '../../services/syncQueue'
+import { useAbasStore } from '../../store/abasStore'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { HistoricoMes } from '../../types/atendimento'
 import { FaturaArquivo } from '../../types/faseA'
@@ -70,17 +72,34 @@ export default function A1_HistoricoConsumoScreen() {
 
   useEffect(() => { loadData() }, [atendimentoId])
 
-  const loadData = async () => {
+  // ao abrir: traz o que o outro aparelho gravou; se algo chegar com a tela aberta, ela recarrega
+  useEffect(() => { atualizarDoDrive(empresaId) }, [empresaId])
+  const recebidos = useAbasStore((s) => s.recebidos[empresaId] ?? 0)
+  const primeiraCarga = useRef(true)
+  useEffect(() => {
+    if (primeiraCarga.current) { primeiraCarga.current = false; return }
+    loadData(true)
+  }, [recebidos])
+
+  // como está gravado: só o que mudar depois disso é gravado de novo
+  const gravado = useRef({ historico: new Map<string, string>(), senhas: new Map<string, string | null>() })
+
+  const loadData = async (recarga = false) => {
     try {
       const [data, lista, senhasSalvas] = await Promise.all([
         getHistoricoConsumo(atendimentoId), listarFaturasArquivo(empresaId), lerRascunho<Partial<Record<Insumo, string>>>(chaveSenhas),
       ])
-      // sem rascunho (versão anterior do app): a senha geral começa com a última senha informada em cada aba
+      // a senha da aba é a das faturas gravadas (podem ter vindo do outro aparelho); sem fatura, a do rascunho
       const iniciais: Partial<Record<Insumo, string>> = { ...(senhasSalvas ?? {}) }
-      if (!senhasSalvas) for (const ins of INSUMOS) {
-        const ultima = [...lista].reverse().find((f) => f.insumo === ins.key && f.senha)?.senha
-        if (ultima) iniciais[ins.key] = ultima
+      for (const ins of INSUMOS) {
+        const daAba = lista.filter((f) => f.insumo === ins.key)
+        if (daAba.length > 0) iniciais[ins.key] = daAba.find((f) => f.senha)?.senha ?? ''
       }
+      gravado.current = {
+        historico: new Map(OUTROS.map((i) => [i, JSON.stringify(data[i] ?? [])])),
+        senhas: new Map(lista.map((f) => [f.id, f.senha ?? null])),
+      }
+      if (recarga) recarregou()
       setSenhas(iniciais)
       setHistorico((prev) => ({
         glp: data.glp?.length ? data.glp : prev.glp,
@@ -103,12 +122,24 @@ export default function A1_HistoricoConsumoScreen() {
   const removidos = useRef(new Set<string>())
   const gravarTudo = async ({ h, a, s }: { h: typeof historico; a: FaturaArquivo[]; s: typeof senhas }) => {
     await gravarRascunho(chaveSenhas, s)
-    for (const insumo of OUTROS) await upsertHistoricoConsumo(atendimentoId, insumo, h[insumo])
+    // só o que mudou nesta tela (o resto pode ter sido alterado no outro aparelho)
+    for (const insumo of OUTROS) {
+      const json = JSON.stringify(h[insumo])
+      if (gravado.current.historico.get(insumo) === json) continue
+      await upsertHistoricoConsumo(atendimentoId, insumo, h[insumo])
+      gravado.current.historico.set(insumo, json)
+    }
     // uma senha só por aba: todas as faturas daquele insumo ficam com a senha da aba
-    for (const f of a) if (!removidos.current.has(f.id)) await salvarFaturaArquivo(empresaId, atendimentoId, { ...f, senha: s[f.insumo as Insumo]?.trim() || null })
+    for (const f of a) {
+      if (removidos.current.has(f.id)) continue
+      const senha = s[f.insumo as Insumo]?.trim() || null
+      if (gravado.current.senhas.has(f.id) && gravado.current.senhas.get(f.id) === senha) continue
+      await salvarFaturaArquivo(empresaId, atendimentoId, { ...f, senha })
+      gravado.current.senhas.set(f.id, senha)
+    }
   }
   const estadoTela = useMemo(() => ({ h: historico, a: arquivos, s: senhas }), [historico, arquivos, senhas])
-  useAutoSalvar(estadoTela, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
+  const { recarregou } = useAutoSalvar(estadoTela, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
 
   const handleEnviar = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], multiple: true, copyToCacheDirectory: true })
@@ -124,7 +155,6 @@ export default function A1_HistoricoConsumoScreen() {
           arquivo_path: caminho, nome_arquivo: file.name, mes_referencia: null, senha: senhaPadrao, insumo: activeTab,
         })
       }
-      await updateAtendimento(atendimentoId, { status_modulos: { A1: true } })
       marcarModuloConcluido('A1')
       setArquivos(await listarFaturasArquivo(empresaId))
       sincronizarEmSegundoPlano(empresaId)
@@ -174,7 +204,6 @@ export default function A1_HistoricoConsumoScreen() {
     setLoadingMsg('Salvando...')
     try {
       for (const insumo of OUTROS) await upsertHistoricoConsumo(atendimentoId, insumo, historico[insumo])
-      await updateAtendimento(atendimentoId, { status_modulos: { A1: true } })
       await marcarInicio(atendimentoId)
       marcarModuloConcluido('A1')
       sincronizarEmSegundoPlano(empresaId)

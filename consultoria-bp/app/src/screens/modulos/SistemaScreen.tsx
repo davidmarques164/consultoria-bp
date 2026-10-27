@@ -12,7 +12,7 @@ import AlertBanner from '../../components/common/AlertBanner'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import FotosCampo from '../../components/atendimento/FotosCampo'
 import { updateAtendimento } from '../../db/operations'
-import { excluirIntervencao, getAtendimentoFaseA, listarIntervencoes, marcarSistemaNaoAplicavel, salvarIntervencao } from '../../db/faseA'
+import { excluirIntervencao, getAtendimentoFaseA, lerExcluidos, listarIntervencoes, marcarSistemaNaoAplicavel, salvarIntervencao } from '../../db/faseA'
 import { apagarArquivo } from '../../services/arquivosLocais'
 import { sincronizarEmSegundoPlano } from '../../services/syncQueue'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
@@ -21,7 +21,9 @@ import { Intervencao } from '../../types/faseA'
 import { formDaIntervencao, formIntervencaoEmBranco, formIntervencaoVazio, FormIntervencao, intervencaoDoForm } from '../../utils/formularios'
 import { novoId } from '../../utils/id'
 import { Problema } from '../../utils/validacoes'
-import { lerRascunho, gravarRascunho } from '../../db/rascunhos'
+import { lerRascunhoComData, gravarRascunho } from '../../db/rascunhos'
+import { momento } from '../../services/estadoEmpresa'
+import { atualizarDoDrive } from '../../services/syncQueue'
 import { useAutoSalvar } from '../../hooks/useAutoSalvar'
 
 type Cartao = FormIntervencao & { chave: string }
@@ -57,18 +59,41 @@ export default function SistemaScreen() {
 
   useEffect(() => { carregar() }, [atendimentoId, cfg.aba])
 
-  // O que foi digitado volta exatamente como estava (rascunho); itens gravados fora do rascunho entram no fim.
-  const carregar = async () => {
+  // ao abrir: traz o que o outro aparelho gravou; se algo chegar com a tela aberta, ela recarrega
+  useEffect(() => { atualizarDoDrive(empresaId) }, [empresaId])
+  const recebidos = useAbasStore((s) => s.recebidos[empresaId] ?? 0)
+  const primeiraCarga = useRef(true)
+  useEffect(() => {
+    if (primeiraCarga.current) { primeiraCarga.current = false; return }
+    carregar(true)
+  }, [recebidos])
+
+  // itens como estão gravados: só o que mudar depois disso é gravado de novo
+  const gravados = useRef(new Map<string, string>())
+
+  // O que foi digitado volta exatamente como estava (rascunho). Item alterado no outro aparelho depois do
+  // rascunho volta como está gravado; item apagado lá some daqui; itens fora do rascunho entram no fim.
+  const carregar = async (recarga = false) => {
     try {
-      const [todas, at, rascunho] = await Promise.all([
-        listarIntervencoes(atendimentoId), getAtendimentoFaseA(atendimentoId), lerRascunho<Cartao[]>(chaveRascunho),
+      const [todas, at, rascunho, excluidos] = await Promise.all([
+        listarIntervencoes(atendimentoId), getAtendimentoFaseA(atendimentoId), lerRascunhoComData<Cartao[]>(chaveRascunho), lerExcluidos('intervencoes'),
       ])
       const lista = todas.filter((i) => i.sistema === cfg.sistema)
-      setSalvas(Object.fromEntries(lista.map((i) => [i.id, i])))
-      const doRascunho = (rascunho ?? []).map((c) => ({ ...formIntervencaoVazio(), ...c }))
+      const porId = new Map(lista.map((i) => [i.id, i]))
+      const quandoRascunho = momento(rascunho?.quando)
+      const doRascunho = (rascunho?.conteudo ?? []).flatMap((c): Cartao[] => {
+        const cartao = { ...formIntervencaoVazio(), ...c }
+        const gravado = cartao.id ? porId.get(cartao.id) : undefined
+        if (cartao.id && !gravado && excluidos.has(cartao.id)) return []
+        if (gravado && momento(gravado.updated_at) > quandoRascunho) return [{ ...formDaIntervencao(gravado), chave: cartao.chave }]
+        return [cartao]
+      })
       const ids = new Set(doRascunho.map((c) => c.id))
       const deFora = lista.filter((i) => !ids.has(i.id)).map((i) => ({ ...formDaIntervencao(i), chave: i.id }))
       const todos = [...doRascunho, ...deFora]
+      setSalvas(Object.fromEntries(lista.map((i) => [i.id, i])))
+      gravados.current = new Map(todos.map((c) => [c.chave, JSON.stringify(c)]))
+      if (recarga) recarregou()
       setCartoes(todos.length > 0 ? todos : [cartaoNovo()])
       setNaoAplicavel((at?.sistemas_nao_aplicaveis ?? []).includes(cfg.aba))
       setPronto(true)
@@ -80,17 +105,18 @@ export default function SistemaScreen() {
   // Grava sozinho: o rascunho da tela e cada item que já pode virar registro.
   // itens apagados nesta tela: uma gravação que já estava em curso não pode trazê-los de volta
   const removidos = useRef(new Set<string>())
+  // só grava os itens que mudaram nesta tela; o rascunho vai por último, mais novo que os itens daqui
   const gravarTudo = async (lista: Cartao[]) => {
-    await gravarRascunho(chaveRascunho, lista.filter((c) => !removidos.current.has(c.chave)))
-    let algum = false
     for (const c of lista) {
       if (removidos.current.has(c.chave)) continue
       if (formIntervencaoEmBranco(c)) continue
-      if (await gravar(c)) algum = true
+      const json = JSON.stringify(c)
+      if (gravados.current.get(c.chave) === json) continue
+      if (await gravar(c)) gravados.current.set(c.chave, json)
     }
-    if (algum) await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: true } })
+    await gravarRascunho(chaveRascunho, lista.filter((c) => !removidos.current.has(c.chave)))
   }
-  useAutoSalvar(cartoes, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
+  const { recarregou } = useAutoSalvar(cartoes, pronto, gravarTudo, () => sincronizarEmSegundoPlano(empresaId))
 
   const alterar = (chave: string, dados: Partial<FormIntervencao>) => setCartoes((p) => p.map((c) => (c.chave === chave ? { ...c, ...dados } : c)))
 
@@ -115,7 +141,6 @@ export default function SistemaScreen() {
     setNaoAplicavel(novo)
     try {
       await marcarSistemaNaoAplicavel(atendimentoId, cfg.aba, novo)
-      await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: novo || Object.keys(salvas).length > 0 } })
       if (novo) marcarModuloConcluido(cfg.aba)
       useAbasStore.getState().avisar()
       sincronizarEmSegundoPlano(empresaId)
@@ -158,10 +183,13 @@ export default function SistemaScreen() {
     }
     setLoading(true)
     try {
+      for (const c of preenchidos) {
+        const json = JSON.stringify(c)
+        if (gravados.current.get(c.chave) === json) continue
+        if (await gravar(c)) gravados.current.set(c.chave, json)
+      }
       await gravarRascunho(chaveRascunho, cartoes)
-      for (const c of preenchidos) await gravar(c)
       const concluido = naoAplicavel || preenchidos.length > 0
-      await updateAtendimento(atendimentoId, { status_modulos: { [cfg.aba]: concluido } })
       if (concluido) marcarModuloConcluido(cfg.aba)
       const lista = (await listarIntervencoes(atendimentoId)).filter((i) => i.sistema === cfg.sistema)
       setSalvas(Object.fromEntries(lista.map((x) => [x.id, x])))

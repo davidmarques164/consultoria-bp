@@ -20,6 +20,18 @@ const lista = <T>(s: string | null | undefined, padrao: T): T => {
   try { return JSON.parse(s) as T } catch { return padrao }
 }
 
+/** Registra que um item foi apagado, para a sincronia apagar também no outro aparelho. */
+async function registrarExclusao(tabela: string, id: string, empresaId: string | null): Promise<void> {
+  const db = await getDB()
+  await db.runAsync('INSERT OR REPLACE INTO excluidos (tabela, id, empresa_id, quando) VALUES (?,?,?,?)', [tabela, id, empresaId, agora()])
+}
+
+/** Ids de uma tabela apagados (aqui ou no outro aparelho). */
+export async function lerExcluidos(tabela: string): Promise<Set<string>> {
+  const db = await getDB()
+  return new Set((await db.getAllAsync<{ id: string }>('SELECT id FROM excluidos WHERE tabela = ?', [tabela])).map((r) => r.id))
+}
+
 // ── ATENDIMENTO: início, fim, energia ───────────────────────────────────────
 
 /** Grava a data de início na primeira vez que algum dado da empresa é salvo. */
@@ -120,7 +132,7 @@ function linhaParaCarga(r: any): Carga {
     quantidade: r.quantidade ?? 1, em_uso: r.em_uso !== 0, dias_semana: r.dias_semana ?? null, dias_mes: r.dias_mes ?? null,
     intervalos: lista<[string, string][]>(r.intervalos, []),
     modo_uso: ['pontual', '24h', 'jornada'].includes(r.modo_uso) ? r.modo_uso : 'horario', horas_dia: r.horas_dia ?? null,
-    uso_final: r.uso_final ?? null, fotos: lista<string[]>(r.fotos, []),
+    uso_final: r.uso_final ?? null, fotos: lista<string[]>(r.fotos, []), updated_at: r.updated_at ?? null,
   }
 }
 
@@ -158,8 +170,10 @@ export async function salvarCarga(c: Omit<Carga, 'id' | 'ordem'> & { id?: string
 
 export async function excluirCarga(id: string): Promise<void> {
   const db = await getDB()
-  const r = await db.getFirstAsync<{ atendimento_id: string }>('SELECT atendimento_id FROM cargas WHERE id = ?', [id])
+  const r = await db.getFirstAsync<{ atendimento_id: string; empresa_id: string | null }>(
+    'SELECT c.atendimento_id, a.empresa_id FROM cargas c LEFT JOIN atendimentos a ON a.id = c.atendimento_id WHERE c.id = ?', [id])
   await db.runAsync('DELETE FROM cargas WHERE id = ?', [id])
+  await registrarExclusao('cargas', id, r?.empresa_id ?? null)
   if (r) await marcarAtendimentoAlterado(r.atendimento_id)
 }
 
@@ -176,7 +190,7 @@ function linhaParaIntervencao(r: any): Intervencao {
     depois_valor: r.depois_valor ?? null, depois_data: r.depois_data ?? null, depois_foto: r.depois_foto ?? null,
     horas_antes: r.horas_antes ?? null, horas_depois: r.horas_depois ?? null,
     investimento_rs: r.investimento_rs ?? null, realizada: bool(r.realizada),
-    fotos_antes: lista<string[]>(r.fotos_antes, []), fotos_depois: lista<string[]>(r.fotos_depois, []),
+    fotos_antes: lista<string[]>(r.fotos_antes, []), fotos_depois: lista<string[]>(r.fotos_depois, []), updated_at: r.updated_at ?? null,
   }
 }
 
@@ -222,8 +236,10 @@ export async function salvarIntervencao(i: Omit<Intervencao, 'id' | 'ordem'> & {
 
 export async function excluirIntervencao(id: string): Promise<void> {
   const db = await getDB()
-  const r = await db.getFirstAsync<{ atendimento_id: string }>('SELECT atendimento_id FROM intervencoes WHERE id = ?', [id])
+  const r = await db.getFirstAsync<{ atendimento_id: string; empresa_id: string | null }>(
+    'SELECT i.atendimento_id, a.empresa_id FROM intervencoes i LEFT JOIN atendimentos a ON a.id = i.atendimento_id WHERE i.id = ?', [id])
   await db.runAsync('DELETE FROM intervencoes WHERE id = ?', [id])
+  await registrarExclusao('intervencoes', id, r?.empresa_id ?? null)
   if (r) await marcarAtendimentoAlterado(r.atendimento_id)
 }
 
@@ -254,6 +270,7 @@ export async function excluirFaturaArquivo(id: string): Promise<void> {
   const db = await getDB()
   const r = await db.getFirstAsync<{ empresa_id: string }>('SELECT empresa_id FROM faturas WHERE id = ?', [id])
   await db.runAsync('DELETE FROM faturas WHERE id = ?', [id])
+  await registrarExclusao('faturas', id, r?.empresa_id ?? null)
   if (r) await marcarEmpresaAlterada(r.empresa_id)
 }
 
@@ -261,10 +278,10 @@ export async function salvarFaturaArquivo(empresaId: string, atendimentoId: stri
   const db = await getDB()
   const id = f.id ?? novoId()
   await db.runAsync(
-    `INSERT INTO faturas (id,empresa_id,arquivo_path,nome_arquivo,mes_referencia,senha,insumo) VALUES (?,?,?,?,?,?,?)
+    `INSERT INTO faturas (id,empresa_id,arquivo_path,nome_arquivo,mes_referencia,senha,insumo,updated_at) VALUES (?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET arquivo_path=excluded.arquivo_path, nome_arquivo=excluded.nome_arquivo,
-       mes_referencia=excluded.mes_referencia, senha=excluded.senha, insumo=excluded.insumo`,
-    [id, empresaId, f.arquivo_path ?? null, f.nome_arquivo ?? null, f.mes_referencia ?? null, f.senha ?? null, f.insumo ?? 'energia_eletrica']
+       mes_referencia=excluded.mes_referencia, senha=excluded.senha, insumo=excluded.insumo, updated_at=excluded.updated_at`,
+    [id, empresaId, f.arquivo_path ?? null, f.nome_arquivo ?? null, f.mes_referencia ?? null, f.senha ?? null, f.insumo ?? 'energia_eletrica', agora()]
   )
   await marcarInicio(atendimentoId)
   return id

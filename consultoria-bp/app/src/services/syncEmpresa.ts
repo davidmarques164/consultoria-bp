@@ -4,7 +4,7 @@
  *
  * Funciona nos dois sentidos, para o mesmo atendimento seguir no celular e no computador:
  * a pasta tem `_app/estado.json` com tudo o que o app guarda da empresa. Antes de enviar, o app
- * confere se o Drive tem uma versão mais nova (gravada no outro aparelho); vale a última gravação.
+ * traz o que o outro aparelho gravou e junta item por item com o daqui (mesclarEstado); só então envia.
  */
 import { getValidToken } from './googleAuth'
 import { ArquivoDrive, criarDrive, Drive, DriveError, escaparBusca, urlDaPasta } from './driveClient'
@@ -12,8 +12,9 @@ import { exportarAtendimento } from './exportAtendimento'
 import { ResultadoDaSincronizacao, sincronizarPacote } from './syncPacote'
 import { baixarArquivo, caminhoNoAparelho, enviarArquivo, tamanhoArquivo } from './arquivosLocais'
 import {
-  aplicarEstado, decidirSincronia, EstadoEmpresa, garantirMarca, lerEstadoLocal, lerMarcas, marcarSincronizado, nomeDoArquivo,
+  definirMarcas, EstadoEmpresa, garantirMarca, lerEstadoLocal, lerMarcas, marcarSincronizado, mesclarEstado, nomeDoArquivo,
 } from './estadoEmpresa'
+import { useAbasStore } from '../store/abasStore'
 import { definirPastaDrive, getEmpresa, getOrCreateAtendimento } from '../db/operations'
 import { getArquivoEnviado, registrarArquivoEnviado } from '../db/faseA'
 import { nomePastaEmpresa } from '../utils/atendimentoJson'
@@ -48,8 +49,8 @@ async function estadoNoDrive(drive: Drive, empresaId: string): Promise<ArquivoDr
     .sort((a, b) => (b.appProperties![P.alterado] > a.appProperties![P.alterado] ? 1 : -1))[0] ?? null
 }
 
-/** Baixa o estado e os arquivos que faltam neste aparelho, e põe tudo no banco. */
-async function receber(drive: Drive, arquivo: ArquivoDrive): Promise<EstadoEmpresa> {
+/** Baixa o estado e os arquivos que faltam neste aparelho, e junta tudo com o que já está no banco. */
+async function receber(drive: Drive, arquivo: ArquivoDrive) {
   const estado = await drive.lerJson<EstadoEmpresa>(arquivo.id)
   const headers = await drive.cabecalhoAutorizacao()
   const troca = new Map<string, string>()
@@ -63,8 +64,31 @@ async function receber(drive: Drive, arquivo: ArquivoDrive): Promise<EstadoEmpre
     }
   }
   const pastaId = (estado.tabelas.empresas[0]?.drive_folder_id as string | null) ?? null
-  await aplicarEstado(estado, troca, pastaId)
-  return estado
+  return mesclarEstado(estado, troca, pastaId)
+}
+
+const depoisDe = (iso: string) => new Date(Date.parse(iso) + 1).toISOString()
+
+/**
+ * Se o Drive tem alteração que este aparelho ainda não viu, traz e junta com a daqui.
+ * Devolve se algo mudou aqui e se este aparelho ainda tem o que enviar.
+ */
+async function receberSeMudou(drive: Drive, empresaId: string, arquivo: ArquivoDrive): Promise<{ recebeu: boolean; pendente: boolean }> {
+  const marcas = await lerMarcas(empresaId)
+  const remoto = arquivo.appProperties![P.alterado]
+  const pendenteAntes = !!marcas && (marcas.alterado_em ?? '') > (marcas.sincronizado_em ?? '')
+  if (marcas && remoto <= (marcas.sincronizado_em ?? '')) return { recebeu: false, pendente: pendenteAntes || !marcas.sincronizado_em }
+  const r = await receber(drive, arquivo)
+  const pendente = pendenteAntes || r.localTemMais
+  if (pendente) {
+    // o que só existe aqui precisa subir: a marca local fica depois da do Drive
+    const agora = new Date().toISOString()
+    await definirMarcas(empresaId, agora > remoto ? agora : depoisDe(remoto), remoto)
+  } else {
+    await definirMarcas(empresaId, remoto, remoto)
+  }
+  if (r.mudou) useAbasStore.getState().avisarRecebido(empresaId)
+  return { recebeu: r.mudou, pendente }
 }
 
 async function sincronizar(empresaId: string, consultor: Consultor): Promise<ResultadoDaSincronizacao> {
@@ -72,15 +96,17 @@ async function sincronizar(empresaId: string, consultor: Consultor): Promise<Res
   if (!empresa) throw new Error('Empresa não encontrada no aparelho.')
   const drive = criarDrive(getValidToken, fetchDrive)
 
+  // primeiro o que veio do outro aparelho, juntado ao daqui; depois o envio do resultado
   const remoto = await estadoNoDrive(drive, empresaId)
-  const decisao = decidirSincronia(await lerMarcas(empresaId), remoto ? { alterado_em: remoto.appProperties![P.alterado] } : null)
-  if (decisao === 'receber' && remoto) {
-    await receber(drive, remoto)
-    const atualizada = await getEmpresa(empresaId)
-    const pastaId = atualizada?.drive_folder_id ?? empresa.drive_folder_id ?? ''
-    return {
-      pastaId, pastaUrl: urlDaPasta(pastaId), pasta: nomePastaEmpresa(atualizada?.razao_social ?? empresa.razao_social),
-      enviados: [], jaEstavam: [], falhas: [], grandes: [], modelo: 'ja_estava', recebido: true,
+  if (remoto) {
+    const r = await receberSeMudou(drive, empresaId, remoto)
+    if (r.recebeu && !r.pendente) {
+      const atualizada = await getEmpresa(empresaId)
+      const pastaId = atualizada?.drive_folder_id ?? empresa.drive_folder_id ?? ''
+      return {
+        pastaId, pastaUrl: urlDaPasta(pastaId), pasta: nomePastaEmpresa(atualizada?.razao_social ?? empresa.razao_social),
+        enviados: [], jaEstavam: [], falhas: [], grandes: [], modelo: 'ja_estava', recebido: true,
+      }
     }
   }
 
@@ -116,11 +142,25 @@ async function sincronizar(empresaId: string, consultor: Consultor): Promise<Res
 }
 
 /**
+ * Traz do Drive o que o outro aparelho gravou nesta empresa e junta com o daqui, sem enviar.
+ * Usado ao abrir uma aba, para a tela começar com os dados mais recentes. Devolve se algo mudou.
+ */
+export async function atualizarEmpresaDoDrive(empresaId: string): Promise<boolean> {
+  const drive = criarDrive(getValidToken, fetchDrive)
+  return emSerie(empresaId, async () => {
+    const remoto = await estadoNoDrive(drive, empresaId)
+    if (!remoto) return false
+    return (await receberSeMudou(drive, empresaId, remoto)).recebeu
+  })
+}
+
+/**
  * Traz do Drive as empresas do consultor que estão mais novas lá (ou que este aparelho ainda não tem),
- * por exemplo as cadastradas no celular quando se abre o programa no computador. Não envia nada.
+ * por exemplo as cadastradas no celular quando se abre o programa no computador. Não envia nada:
+ * as empresas que ficarem com alteração só daqui são passadas a `pendentes` (para o envio em segundo plano).
  * Devolve quantas empresas foram atualizadas neste aparelho.
  */
-export async function receberEmpresasDoDrive(consultorEmail: string): Promise<number> {
+export async function receberEmpresasDoDrive(consultorEmail: string, pendentes?: (empresaId: string) => void): Promise<number> {
   const drive = criarDrive(getValidToken, fetchDrive)
   const email = consultorEmail.toLowerCase()
   const maisNovo = new Map<string, ArquivoDrive>()
@@ -133,12 +173,9 @@ export async function receberEmpresasDoDrive(consultorEmail: string): Promise<nu
   let atualizadas = 0
   for (const [empresaId, arquivo] of maisNovo) {
     try {
-      const recebeu = await emSerie(empresaId, async () => {
-        if (decidirSincronia(await lerMarcas(empresaId), { alterado_em: arquivo.appProperties![P.alterado] }) !== 'receber') return false
-        await receber(drive, arquivo)
-        return true
-      })
-      if (recebeu) atualizadas++
+      const r = await emSerie(empresaId, () => receberSeMudou(drive, empresaId, arquivo))
+      if (r.recebeu) atualizadas++
+      if (r.pendente) pendentes?.(empresaId)
     } catch (e: any) {
       console.log('[DRIVE] Empresa não recebida:', empresaId, e?.message)
     }

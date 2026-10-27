@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { atualizarDoDrive } from '../../services/syncQueue'
+import { useAbasStore } from '../../store/abasStore'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import BotaoFinalizarAba from '../../components/atendimento/BotaoFinalizarAba'
 import KeyboardScrollView from '../../components/common/KeyboardScrollView'
@@ -32,23 +34,32 @@ export default function FuncionamentoScreen() {
   const [form, setForm] = useState<FormFuncionamento>(funcionamentoVazio())
   const [pronto, setPronto] = useState(false)
 
-  useEffect(() => {
+  const carregar = (recarga = false) =>
     getAtendimentoFaseA(atendimentoId)
       .then((at) => {
         const salvo = at?.funcionamento as Partial<FormFuncionamento> | null
+        if (recarga) recarregou()
         if (salvo) setForm({ ...funcionamentoVazio(), ...salvo })
         setPronto(true)
       })
       .catch((e) => Alert.alert('Erro', e?.message ?? 'Não foi possível carregar.'))
-  }, [atendimentoId])
+  useEffect(() => { carregar() }, [atendimentoId])
+
+  // ao abrir: traz o que o outro aparelho gravou; se algo chegar com a tela aberta, ela recarrega
+  useEffect(() => { atualizarDoDrive(empresaId) }, [empresaId])
+  const recebidos = useAbasStore((s) => s.recebidos[empresaId] ?? 0)
+  const primeiraCarga = useRef(true)
+  useEffect(() => {
+    if (primeiraCarga.current) { primeiraCarga.current = false; return }
+    carregar(true)
+  }, [recebidos])
 
   const gravar = async (f: FormFuncionamento) => {
     await salvarFuncionamento(atendimentoId, f)
     const algum = DIAS_SEMANA.some((d) => f[d.chave].ativo)
-    await updateAtendimento(atendimentoId, { status_modulos: { [CHAVE_FUNCIONAMENTO]: algum } })
     if (algum) marcarModuloConcluido(CHAVE_FUNCIONAMENTO)
   }
-  useAutoSalvar(form, pronto, gravar, () => sincronizarEmSegundoPlano(empresaId))
+  const { recarregou } = useAutoSalvar(form, pronto, gravar, () => sincronizarEmSegundoPlano(empresaId))
 
   const alterarDia = (dia: ChaveDia, dados: Partial<FormFuncionamento[ChaveDia]>) =>
     setForm((f) => ({ ...f, [dia]: { ...f[dia], ...dados } }))
